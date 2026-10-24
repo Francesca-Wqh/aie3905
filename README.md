@@ -56,3 +56,20 @@ wrangler pages deploy dist --project-name yanting-wang-portfolio --branch main
 ## 开源来源
 
 山水地形、水面、溪流等改编自 [臻陌然的一笔江山](https://github.com/zhenmoran/ink-shan-shui)（MIT）。Three.js 与 OrbitControls 使用 MIT 许可。详见 [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) 和 `vendor/` 中许可证；分发时保留署名及许可。
+
+## 枝条与建筑模块（2026-10-25）
+
+- `architecture/roof.js`：改编自《入画》的曲面屋顶、立体瓦垄与山墙。
+- `architecture/buildings.js`：民居、临街铺屋、双层小楼、四角亭、六角亭，以及落点、尺寸、间距与地基适配。
+- `architecture/`：独立模型预览，可旋转缩放并查看三档尺寸。
+- `app.js`：每枝对应一处建筑；高处平台默认亭子、低地默认房屋；枝长映射小中大，平台不足时缩小。落点预览会在 0.9 世界单位内尝试邻近的同类可用平台；水面、陡坡和重叠落点拒绝放置。选择已插枝条后可换式或撤除。
+
+建筑类型在插入时确定；之后画山会调整建筑地基高度，不会自动替换已选造型。`selectMaterial` 与 `placeAt` 是模块整合入口。
+
+验证命令（Node.js）：
+
+```bash
+node --experimental-loader ./tests/three-loader.mjs --test tests/buildings.test.mjs
+```
+
+本地打开 `/tests/interaction.html`，生成示例后检查可建点并测试插枝，可继续用主界面按钮验证换式与撤枝。该页面仅作联调，不发布到个人网站。

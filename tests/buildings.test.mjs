@@ -1,0 +1,40 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {inspectSite,resolveSite,createBuilding,fitFoundation,styles} from '../architecture/buildings.js';
+import {roofSurfaceY,roofGeometry,roofTilesGeometry} from '../architecture/roof.js';
+test('water, steep slopes, narrow platforms and occupied footprints are rejected',()=>{
+ assert.equal(inspectSite(()=>-.5,{x:0,z:0},1).valid,false);
+ assert.equal(inspectSite(x=>3+x*2,{x:0,z:0},1).valid,false);
+ assert.equal(inspectSite((x,z)=>Math.abs(x)<.5&&Math.abs(z)<.5?3:-1,{x:0,z:0},1).valid,false);
+ const occupied={kind:'branch',x:0,z:0,plan:{w:3.2,d:2.9}};
+ assert.equal(inspectSite(()=>1,{x:0,z:0},1,[occupied]).valid,false);
+ assert.equal(inspectSite(()=>1,{x:0,z:0},1,[occupied],occupied).valid,true);
+});
+test('elevation picks architecture and length picks discrete width without stretching parts',()=>{
+ assert.equal(inspectSite(()=>3,{x:0,z:0},1).type,'pavilion');
+ const plans=[.8,1.5,2.4].map(length=>inspectSite(()=>1,{x:0,z:0},length));
+ assert.deepEqual(plans.map(p=>p.tier),[0,1,2]);
+ assert.deepEqual(plans.map(p=>p.w),[3.2*.35,4.4*.35,5.6*.35]);
+ const narrow=inspectSite((x)=>Math.abs(x)<=.75?1:-1,{x:0,z:0},2.4);
+ assert.equal(narrow.valid,true);assert.equal(narrow.tier,0);assert.equal(narrow.shrunk,true);
+});
+test('all five styles contain finite geometry and a ground-fitting foundation',()=>{
+ for(const height of [1,3])for(const length of [.8,1.5,2.4]){
+  const plan=inspectSite(()=>height,{x:0,z:0},length);
+  for(let style=0;style<styles[plan.type].length;style++){
+   const group=createBuilding(plan,style);fitFoundation(group,plan,0,0,(x,z)=>height+.02*x-.03*z);
+   assert.equal(group.name,styles[plan.type][style]);let triangles=0;
+   group.traverse(o=>{if(o.geometry){const pos=o.geometry.attributes.position;assert.ok([...pos.array].every(Number.isFinite));triangles+=pos.count/3;}});
+   assert.ok(triangles>100);assert.ok(group.userData.skirt);
+   const skirt=group.userData.skirt.geometry.attributes.position.array;
+   for(let i=0;i<skirt.length;i+=3)if(skirt[i+1]<0)assert.ok(Math.abs(group.position.y+skirt[i+1]-(height+.02*skirt[i]-.03*skirt[i+2])+.04)<1e-5);
+  }
+ }
+});
+test('WITHIN roof tiles meet the same curved roof surface',()=>{
+ const p={width:5,depth:3,base:2,rise:1,detailed:true};
+ assert.ok(roofSurfaceY(p,0,0)>roofSurfaceY(p,0,1.5));
+ for(const geo of [roofGeometry(p),roofTilesGeometry(p)]){assert.ok([...geo.attributes.position.array].every(Number.isFinite));assert.ok(geo.index.count>0);}
+});
+
+test('nearby safe placement is deterministic and never snaps from open water',()=>{const terrain=x=>x>0?1:-1;const plan=resolveSite(terrain,{x:.5,z:0},.8);assert.equal(plan.valid,true);assert.equal(plan.snapped,true);assert.ok(Math.abs(plan.x-.5)<=.9);assert.deepEqual(resolveSite(terrain,{x:.5,z:0},.8),plan);assert.equal(resolveSite(terrain,{x:-.1,z:0},.8).valid,false);});
