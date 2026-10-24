@@ -55,3 +55,17 @@ test('residential variants are closed dwellings and include a separate courtyard
 
 import {bankHeight,groundHeight} from '../ground.js';
 test('visible lowland exists before drawing and remains when mountains are cleared',()=>{let buildable=0;for(let x=-10;x<=6;x+=2)for(let z=-5;z<=7;z+=2){const plan=inspectSite(bankHeight,{x,z},1.5);if(plan.valid&&plan.type==='house')buildable++;}assert.ok(buildable>=45);assert.ok(bankHeight(-3,2)>.4);assert.ok(bankHeight(28,28)<0);assert.equal(groundHeight(-3,2,-1.2),bankHeight(-3,2));assert.equal(groundHeight(-3,2,7),7);assert.equal(inspectSite(bankHeight,{x:-3,z:2},.8).defaultStyle,3);assert.equal(inspectSite(bankHeight,{x:-3,z:2},1.5).defaultStyle,4);});
+
+import * as THREE from 'three';
+import {buildDetailedPavilion} from '../architecture/pavilions.js';
+test('pavilions have textured raised tiles, and timber brackets remain beneath the actual roof mesh',()=>{
+ for(const variant of [0,1]){
+  const pavilion=buildDetailedPavilion(3.05,variant);pavilion.updateMatrixWorld(true);
+  const roof=pavilion.getObjectByName('pavilion-curved-roof'),tiles=pavilion.getObjectByName('pavilion-raised-tiles'),frame=pavilion.getObjectByName('pavilion-timber-frame');
+  assert.ok(roof.material.map);assert.ok(roof.material.bumpMap);assert.ok(tiles.geometry.attributes.uv);assert.equal(pavilion.userData.roofFaces,variant===0?4:6);
+  assert.ok(pavilion.getObjectByName('pavilion-eave-rafters'));assert.ok(pavilion.getObjectByName('pavilion-lattice-and-seating'));
+  const ray=new THREE.Raycaster(),down=new THREE.Vector3(0,-1,0);let checked=0;
+  frame.traverse(o=>{if(!o.isMesh)return;const a=o.geometry.attributes.position;for(let i=0;i<a.count;i++){if(a.getY(i)<2.3)continue;ray.set(new THREE.Vector3(a.getX(i),10,a.getZ(i)),down);const hit=ray.intersectObject(roof,false)[0];assert.ok(hit,'upper timber must be covered by roof');assert.ok(a.getY(i)<hit.point.y-.01,'timber must not pierce curved tiles');checked++;}});
+  assert.ok(checked>100);
+ }
+});
