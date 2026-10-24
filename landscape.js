@@ -5,7 +5,7 @@
    笔迹 → 高程图 → 低多边形山水（Three.js r160）
    =========================================================================== */
 import * as THREE from 'three';
-import {bankHeight,groundHeight} from './ground.js?v=courtyard03';
+import {placementHeight} from './ground.js?v=mist06';
 import { OrbitControls } from './vendor/OrbitControls.js';
 
 /* ============================ 一、可调参数 ============================ */
@@ -181,9 +181,7 @@ terrainGeo.rotateX(-Math.PI / 2);
 // 顶点索引 (j*N+i) 对应世界坐标 x=-HALF+i*STEP, z=-HALF+j*STEP（与 PlaneGeometry 顶点顺序一致）
 terrainGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * N * 3), 3));
 terrainGeo.setAttribute('aGrowStart', new THREE.BufferAttribute(growStart, 1));
-const bankHeights=new Float32Array(N*N);
-for(let j=0;j<N;j++)for(let i=0;i<N;i++)bankHeights[j*N+i]=bankHeight(-HALF+i*STEP,-HALF+j*STEP);
-terrainGeo.setAttribute('aBankHeight',new THREE.BufferAttribute(bankHeights,1));
+
 
 const terrainMat = new THREE.MeshStandardMaterial({
   vertexColors: true,
@@ -197,12 +195,12 @@ terrainMat.onBeforeCompile = (shader) => {
   shader.uniforms.uGrowDur = { value: CFG.GROW_DURATION };
   shader.uniforms.uFloor = { value: FLOOR };
   shader.vertexShader =
-    'attribute float aBankHeight;\nattribute float aGrowStart;\nuniform float uTime;\nuniform float uGrowDur;\nuniform float uFloor;\n' +
+    'attribute float aGrowStart;\nuniform float uTime;\nuniform float uGrowDur;\nuniform float uFloor;\n' +
     shader.vertexShader.replace('#include <begin_vertex>', `
       #include <begin_vertex>
       float g = clamp((uTime - aGrowStart) / uGrowDur, 0.0, 1.0);
       g = g * g * (3.0 - 2.0 * g);
-      transformed.y = aBankHeight + (transformed.y - aBankHeight) * g;
+      transformed.y = uFloor + (transformed.y - uFloor) * g;
     `);
   terrainMat.userData.shader = shader;
 };
@@ -225,7 +223,7 @@ const RAMP = [
   [ 8.00, new THREE.Color(0xcbd3c8)],   // 近顶（灰白）
   [ 9.40, new THREE.Color(0xf2f5f0)]    // 峰顶（留白）
 ];
-const _c = new THREE.Color(),bankColor=new THREE.Color(0xa8b187);
+const _c = new THREE.Color();
 function rampColor(y, out) {
   if (y <= RAMP[0][0]) return out.copy(RAMP[0][1]);
   for (let i = 1; i < RAMP.length; i++) {
@@ -293,7 +291,7 @@ const waterMat = new THREE.ShaderMaterial({
               + sin(wp.z * 0.33 - uTime * uWaveSpeed * 0.8) * 0.45
               + sin((wp.x + wp.z) * 0.62 + uTime * uWaveSpeed * 1.7) * 0.25;
       w *= uWaveAmp;
-      wp.y += w;
+      // Preserve flowing colour while keeping the buildable mist ground at y=0.
       vWave  = w / max(uWaveAmp, 0.0001);
       vWorld = wp.xyz;
       vec4 mvPosition = viewMatrix * wp;
@@ -1082,7 +1080,7 @@ function refreshTerrain() {
       const carve = carveMap[k];
       if (carve > 0) h = Math.max(0, h - carve);
 
-      const y = groundHeight(x,z,FLOOR + Math.max(h, 0));
+      const y = FLOOR + Math.max(h, 0);
 
       // 坡度（用已更新的邻点做后向差分，用于压暗陡坡，模拟皴擦）
       const yx = i > 0 ? heights[k - 1] : y;
@@ -1094,7 +1092,6 @@ function refreshTerrain() {
 
       // 颜色
       rampColor(y, _c);
-      if(bankHeights[k]>.2 && y<1.2)_c.lerp(bankColor,.85);
       const jit = 0.94 + 0.12 * vnoise(x * 0.5 + 3.1, z * 0.5 + 7.9);
       const shade = jit * (1 - 0.18 * Math.min(1, slope * 0.55));
       col[k * 3]     = _c.r * shade;
@@ -1509,12 +1506,12 @@ applyTheme('classic');
 
 window.__booted = true;
 
-export const landscape={scene,camera,controls,renderer,canvas,surfaceAt,slopeAt,screenToWorld,makePavilion,
+export const landscape={scene,camera,controls,renderer,canvas,surfaceAt,placementAt:(x,z)=>placementHeight(surfaceAt(x,z)),slopeAt,screenToWorld,makePavilion,
  time:()=>nowT,
  pickSurface(sx,sy){_ndc.set(sx/innerWidth*2-1,-sy/innerHeight*2+1);camera.updateMatrixWorld();_ray.setFromCamera(_ndc,camera);const hits=_ray.intersectObject(terrain,false);if(hits.length&&hits[0].point.y>0)return{x:hits[0].point.x,z:hits[0].point.z};return screenToWorld(sx,sy);},
  setMode(mode){inputMode=mode;controls.mouseButtons.LEFT=mode==='view'?THREE.MOUSE.ROTATE:null;controls.touches.ONE=mode==='view'?THREE.TOUCH.ROTATE:null;canvas.style.cursor=mode==='draw'?'crosshair':'grab';},
  reset(){resetAll();},
  demo(){resetAll();runDemo();window.dispatchEvent(new Event('landscape-stroke'));},
  view(){camAnim=null;const off=new THREE.Vector3().setFromSphericalCoords(R_VIEW,CFG.PHI_VIEW,0);camera.position.copy(controls.target).add(off);camera.lookAt(controls.target);controls.update();},
- support(x,z){if(surfaceAt(x,z)<.4){depositStroke([{x:x-1,z},{x,z},{x:x+1,z}],()=>.7);rebuildTerrain();}},
+ support(x,z){return placementHeight(surfaceAt(x,z));},
 };

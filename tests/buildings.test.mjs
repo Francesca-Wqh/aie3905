@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inspectSite,resolveSite,createBuilding,fitFoundation,styles} from '../architecture/buildings.js';
 import {roofSurfaceY,roofGeometry,roofTilesGeometry} from '../architecture/roof.js';
-test('water, steep slopes, narrow platforms and occupied footprints are rejected',()=>{
- assert.equal(inspectSite(()=>-.5,{x:0,z:0},1).valid,false);
+test('cloud ground allows placement while steep slopes, narrow platforms and occupied footprints are rejected',()=>{
+ assert.equal(inspectSite(()=>-.5,{x:0,z:0},1).valid,true);
  assert.equal(inspectSite(x=>3+x*2,{x:0,z:0},1).valid,false);
  assert.equal(inspectSite((x,z)=>Math.abs(x)<.5&&Math.abs(z)<.5?3:-1,{x:0,z:0},1).valid,false);
  const occupied={kind:'branch',x:0,z:0,plan:{w:3.2,d:2.9}};
@@ -15,7 +15,7 @@ test('elevation picks architecture and length picks discrete width without stret
  const plans=[.8,1.5,2.4].map(length=>inspectSite(()=>1,{x:0,z:0},length));
  assert.deepEqual(plans.map(p=>p.tier),[0,1,2]);
  assert.deepEqual(plans.map(p=>p.w),[3.2*.55,4.4*.55,5.6*.55]);
- const narrow=inspectSite((x)=>Math.abs(x)<=1.2?1:-1,{x:0,z:0},2.4);
+ const narrow=inspectSite((x)=>Math.abs(x)<=1.2?1:5,{x:0,z:0},2.4);
  assert.equal(narrow.valid,true);assert.equal(narrow.tier,0);assert.equal(narrow.shrunk,true);
 });
 test('all seven styles contain finite geometry and a ground-fitting foundation',()=>{
@@ -37,7 +37,7 @@ test('WITHIN roof tiles meet the same curved roof surface',()=>{
  for(const geo of [roofGeometry(p),roofTilesGeometry(p)]){assert.ok([...geo.attributes.position.array].every(Number.isFinite));assert.ok(geo.index.count>0);}
 });
 
-test('nearby safe placement is deterministic and never snaps from open water',()=>{const terrain=x=>x>0?1:-1;const plan=resolveSite(terrain,{x:.5,z:0},.8);assert.equal(plan.valid,true);assert.equal(plan.snapped,true);assert.ok(Math.abs(plan.x-.5)<=.9);assert.deepEqual(resolveSite(terrain,{x:.5,z:0},.8),plan);assert.equal(resolveSite(terrain,{x:-.1,z:0},.8).valid,false);});
+test('nearby platform placement remains deterministic beside a steep cliff',()=>{const terrain=x=>x>0?3:0;const plan=resolveSite(terrain,{x:.5,z:0},.8);assert.equal(plan.valid,true);assert.equal(plan.snapped,true);assert.ok(Math.abs(plan.x-.5)<=.9);assert.deepEqual(resolveSite(terrain,{x:.5,z:0},.8),plan);assert.equal(resolveSite(()=>-1.45,{x:-10,z:0},.8).valid,true);});
 
 test('houses use ported Qingming storefronts with distinct trade furnishings and textured tiled roofs',()=>{
  const expected=['tea-food','wine','inn'];
@@ -53,8 +53,8 @@ test('houses use ported Qingming storefronts with distinct trade furnishings and
 
 test('residential variants are closed dwellings and include a separate courtyard and gate',()=>{for(const style of [3,4]){const plan=inspectSite(()=>.5,{x:0,z:0},1.5),group=createBuilding(plan,style);let residence,gate,sideRoom;group.traverse(o=>{if(o.userData.residential)residence=o;if(o.name==='residence-gate')gate=o;if(o.name==='residence-side-room')sideRoom=o;});assert.ok(residence);assert.equal(residence.userData.courtyard,style===4);if(style===4){assert.ok(gate);assert.ok(sideRoom);}}});
 
-import {bankHeight,groundHeight} from '../ground.js';
-test('visible lowland exists before drawing and remains when mountains are cleared',()=>{let buildable=0;for(let x=-10;x<=6;x+=2)for(let z=-5;z<=7;z+=2){const plan=inspectSite(bankHeight,{x,z},1.5);if(plan.valid&&plan.type==='house')buildable++;}assert.ok(buildable>=45);assert.ok(bankHeight(-3,2)>.4);assert.ok(bankHeight(28,28)<0);assert.equal(groundHeight(-3,2,-1.2),bankHeight(-3,2));assert.equal(groundHeight(-3,2,7),7);assert.equal(inspectSite(bankHeight,{x:-3,z:2},.8).defaultStyle,3);assert.equal(inspectSite(bankHeight,{x:-3,z:2},1.5).defaultStyle,4);});
+import {placementHeight} from '../ground.js';
+test('mist plane supports houses everywhere without creating raised land or underwater foundations',()=>{for(const p of [{x:-25,z:-20},{x:0,z:0},{x:28,z:28}]){const plan=inspectSite(()=>-1.45,p,1.5);assert.equal(plan.valid,true);assert.equal(plan.type,'house');assert.equal(plan.base,0);const group=createBuilding(plan);fitFoundation(group,plan,p.x,p.z,()=>-1.45);assert.equal(group.position.y,.025);const a=group.userData.skirt.geometry.attributes.position;for(let i=0;i<a.count;i++)assert.ok(a.getY(i)>-.1);}assert.equal(placementHeight(-1.45),0);assert.equal(placementHeight(7),7);});
 
 import * as THREE from 'three';
 import {buildDetailedPavilion} from '../architecture/pavilions.js';
