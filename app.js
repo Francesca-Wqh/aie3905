@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {landscape as world} from './landscape.js?v=courtyard03';
-import {resolveSite,createBuilding,fitFoundation,styles,disposeBuildingMaterials} from './architecture/buildings.js?v=pavilion04';
+import {resolveSite,createBuilding,fitFoundation,styles,disposeBuildingMaterials} from './architecture/buildings.js?v=eaves05';
 const $=s=>document.querySelector(s),rng=n=>{const a=Math.sin(n*127.1+93.7)*43758.5453;return a-Math.floor(a)},clamp=THREE.MathUtils.clamp,mix=THREE.MathUtils.lerp;
 const ease=x=>{x=clamp(x,0,1);return x*x*(3-2*x)};
 let vaseRenderer;try{vaseRenderer=new THREE.WebGLRenderer({canvas:$('#vaseCanvas'),antialias:true,alpha:true})}catch(e){$('#err').hidden=false;throw e}

@@ -69,3 +69,18 @@ test('pavilions have textured raised tiles, and timber brackets remain beneath t
   assert.ok(checked>100);
  }
 });
+
+test('residential beams, column heads and wall caps stay below the roof at every size',()=>{
+ const ray=new THREE.Raycaster(),down=new THREE.Vector3(0,-1,0);
+ for(const length of [.8,1.5,2.4])for(const style of [3,4]){
+  const group=createBuilding(inspectSite(()=>.5,{x:0,z:0},length),style);group.updateMatrixWorld(true);
+  const rooms=[];group.traverse(o=>{if(o.userData.residentialRoom)rooms.push(o);});assert.ok(rooms.length);
+  for(const room of rooms){const roof=room.getObjectByName('qingming-roof-surface'),inverse=room.matrixWorld.clone().invert();let checked=0;
+   room.traverse(o=>{if(!o.isMesh||o.geometry.type!=='BoxGeometry'||!['wood','plaster'].includes(o.material.userData.surfaceKind))return;
+    const a=o.geometry.attributes.position;
+    for(let i=0;i<a.count;i++){const p=new THREE.Vector3().fromBufferAttribute(a,i).applyMatrix4(o.matrixWorld),local=p.clone().applyMatrix4(inverse);if(local.y<2.3)continue;ray.set(new THREE.Vector3(p.x,10,p.z),down);const hit=ray.intersectObject(roof,false)[0];assert.ok(hit,'upper frame must lie within the roof footprint');assert.ok(p.y<hit.point.y-.001,'frame and plaster must not project through roof');checked++;}
+    if(o.userData.residenceColumn){o.geometry.computeBoundingBox();assert.ok(Math.abs(o.position.y+o.geometry.boundingBox.min.y-.22)<1e-6,'column feet must remain on the original base');}
+   });assert.ok(checked>30);
+  }
+ }
+});

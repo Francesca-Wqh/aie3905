@@ -93,3 +93,7 @@ node --experimental-loader ./tests/three-loader.mjs --test tests/buildings.test.
 两款亭子替换为 `architecture/pavilions.js` 的精细曲面瓦顶与木构模型，与房屋共享材质风格。屋顶含立体瓦垄、瓦当、屋脊、宝顶与檐椽，亭身含撑托、棂格栏杆、坐凳、柱础与台阶。模型整体按比例放入现有落点范围。
 
 `/architecture/?type=pavilion&style=0` 查看四角亭，`style=1` 查看六角亭。入口版本 `pavilion04`；岸地与房屋沿用现有实现。新增测试用实际屋顶网格射线检查上部木构不穿出瓦面。
+
+## 住宅檐下连接修复
+
+住宅横梁按整个构件覆盖范围采样屋顶曲面，保持梁截面并下移到瓦面以下；柱头缩短到檐下、保留柱脚高度，墙顶随屋顶下缘裁切。适用于小民居与小院正房、厢房。回归测试对三档尺寸进行实际屋顶网格射线检查。入口版本为 `eaves05`。

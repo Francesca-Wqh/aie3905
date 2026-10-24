@@ -264,16 +264,29 @@ export function buildQingmingHouse(w, d, tall = false, index = 1) {
 export function buildQingmingResidence(w=6,d=4.5,courtyard=false){
  const root=new THREE.Group();root.userData.residential=true;root.userData.courtyard=courtyard;
  function window(g,x,y,z,width=1.1,height=1.25){box(g,[width,height,.075],[x,y,z],dark);for(let i=0;i<=6;i++)box(g,[.035,height+.08,.045],[x-width/2+i*width/6,y,z+.06],wood);for(let i=0;i<=3;i++)box(g,[width+.08,.04,.05],[x,y-height/2+i*height/3,z+.065],wood);box(g,[width+.18,.11,.18],[x,y-height/2-.06,z],stone);}
- function dwelling(width,depth,h){const g=new THREE.Group();g.name='residence-main-room';box(g,[width+.45,.24,depth+.45],[0,.12,0],stone);box(g,[width-.2,h,.18],[0,h/2+.24,-depth/2+.1],plaster);for(const side of [-1,1])box(g,[.18,h,depth],[side*(width/2-.09),h/2+.24,0],plaster);
+ function dwelling(width,depth,h){const g=new THREE.Group();g.name='residence-main-room';g.userData.residentialRoom=true;box(g,[width+.45,.24,depth+.45],[0,.12,0],stone);box(g,[width-.2,h,.18],[0,h/2+.24,-depth/2+.1],plaster);for(const side of [-1,1])box(g,[.18,h,depth],[side*(width/2-.09),h/2+.24,0],plaster);
   // Front is framed around a recessed two-leaf doorway, instead of a solid wall with a painted door.
   const front=depth/2;for(const side of [-1,1]){box(g,[(width-1.5)/2,h,.18],[side*(width/4+.375),h/2+.24,front],plaster);window(g,side*width*.31,1.78,front+.12,Math.min(1.35,width*.21));}
   box(g,[1.5,h-2.4,.18],[0,2.64+(h-2.4)/2,front],plaster);box(g,[1.5,2.4,.12],[0,1.44,front-.15],dark);
   for(const side of [-1,1]){const door=new THREE.Group();door.position.set(side*.72,.25,front+.12);door.rotation.y=side*.2;g.add(door);box(door,[.68,2.33,.09],[-side*.34,1.165,0],wood);for(let j=0;j<4;j++)box(door,[.55,.035,.035],[-side*.34,.3+j*.52,.065],dark);const ring=new THREE.Mesh(new THREE.TorusGeometry(.065,.014,5,12),ochre);ring.position.set(-side*.55,1.13,.07);door.add(ring);}
-  for(const x of [-width/2,-width*.16,width*.16,width/2])for(const z of [-depth/2,front+.13])box(g,[.13,h+.1,.14],[x,h/2+.27,z],wood);
+  for(const x of [-width/2,-width*.16,width*.16,width/2])for(const z of [-depth/2,front+.13])box(g,[.13,h+.1,.14],[x,h/2+.27,z],wood).userData.residenceColumn=true;
   for(const y of [.47,h+.2])box(g,[width+.2,.14,.16],[0,y,front+.15],wood);
   const roofWidth=width+1.15,roofDepth=depth+1.3,rise=width*.29,t=(depth-.15)/roofDepth,base=h+.28-rise*(1-t+.23*t**4),profile=roof(g,roofWidth,roofDepth,base+.2,rise,true);g.add(new THREE.Mesh(roofGableGeometry(profile,width-.15,depth-.15,h+.24),plaster));
   for(let i=0;i<18;i++){const x=(i/17-.5)*roofWidth;beam(g,[x,roofSurfaceY(profile,x,front-.1)-.1,front-.1],[x,roofSurfaceY(profile,x,front+.6)-.1,front+.6],.035,dark);}
   for(const side of [-1,1]){box(g,[.14,.13,depth],[side*width/2,1,0],wood);box(g,[.14,.13,depth],[side*width/2,h+.12,0],wood);}
+  // Match each timber footprint to the actual curved roof, including the projecting front edge.
+  // Columns retain their foot position; horizontal members retain their rectangular section.
+  g.traverse(m=>{
+   if(!m.isMesh)return;
+   if(m.material===wood && m.geometry.type==='BoxGeometry'){
+    m.geometry.computeBoundingBox();const b=m.geometry.boundingBox;
+    let ceiling=Infinity;
+    for(const x of [b.min.x,(b.min.x+b.max.x)/2,b.max.x])for(const z of [b.min.z,(b.min.z+b.max.z)/2,b.max.z])ceiling=Math.min(ceiling,roofSurfaceY(profile,x+m.position.x,z+m.position.z)-.065);
+    const top=b.max.y+m.position.y,bottom=b.min.y+m.position.y;
+    if(top>ceiling){if(m.userData.residenceColumn){const height=ceiling-bottom;m.geometry.scale(1,height/(b.max.y-b.min.y),1);m.position.y=(ceiling+bottom)/2;}else m.position.y-=top-ceiling;}
+   }
+   if(m.material===plaster){const a=m.geometry.attributes.position;for(let i=0;i<a.count;i++){const ceiling=roofSurfaceY(profile,a.getX(i)+m.position.x,a.getZ(i)+m.position.z)-.035;a.setY(i,Math.min(a.getY(i),ceiling-m.position.y));}a.needsUpdate=true;m.geometry.computeVertexNormals();}
+  });
   for(let i=0;i<2;i++)box(g,[1.85,.12,.4],[0,.06+i*.1,front+.6-i*.25],stone);return g;
  }
  if(!courtyard){root.add(dwelling(w,d,3.1));const jar=potteryJar(red);jar.scale.setScalar(1.5);jar.position.set(w*.38,.24,d/2+.3);root.add(jar);const basket=wovenBasket(.25,.4,ochre);basket.position.set(-w*.37,.24,d/2+.3);root.add(basket);}

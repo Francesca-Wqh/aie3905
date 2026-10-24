@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {buildDetailedPavilion} from './pavilions.js?v=pavilion04';
-import {buildQingmingHouse,buildQingmingResidence} from './qingming-house.js?v=courtyard03';
+import {buildQingmingHouse,buildQingmingResidence} from './qingming-house.js?v=eaves05';
 
 const mats={stone:new THREE.MeshStandardMaterial({color:'#a7a48e',roughness:1})};
 export const styles={house:['台十茶肆','汴京酒铺','逐亚客舍','小民居','围合小院'],pavilion:['四角亭','六角亭']};
