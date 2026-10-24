@@ -38,3 +38,14 @@ test('WITHIN roof tiles meet the same curved roof surface',()=>{
 });
 
 test('nearby safe placement is deterministic and never snaps from open water',()=>{const terrain=x=>x>0?1:-1;const plan=resolveSite(terrain,{x:.5,z:0},.8);assert.equal(plan.valid,true);assert.equal(plan.snapped,true);assert.ok(Math.abs(plan.x-.5)<=.9);assert.deepEqual(resolveSite(terrain,{x:.5,z:0},.8),plan);assert.equal(resolveSite(terrain,{x:-.1,z:0},.8).valid,false);});
+
+test('houses use ported Qingming storefronts with distinct trade furnishings and textured tiled roofs',()=>{
+ const expected=['tea-food','wine','inn'];
+ for(let style=0;style<3;style++){
+  const plan=inspectSite(()=>1,{x:0,z:0},1.5),group=createBuilding(plan,style);
+  assert.equal(group.userData.source,'WITHIN/qingming.ts house');
+  let shop,roof,rafters=0,lanterns=0,pointLights=0;
+  group.traverse(o=>{if(o.userData.shopKind)shop=o;if(o.name==='qingming-roof-surface')roof=o;if(o.name==='qingming-eave-rafter')rafters++;if(o.name==='qingming-hanging-lantern')lanterns++;if(o.isPointLight)pointLights++;});
+  assert.equal(shop.userData.shopKind,expected[style]);assert.ok(shop.userData.features.length>=3);assert.ok(roof.material.bumpMap);assert.ok(roof.material.map);assert.equal(rafters,23);assert.ok(lanterns>=1);assert.equal(pointLights,0);
+ }
+});

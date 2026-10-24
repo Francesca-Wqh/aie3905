@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {landscape as world} from './landscape.js';
-import {resolveSite,createBuilding,fitFoundation,styles} from './architecture/buildings.js';
+import {resolveSite,createBuilding,fitFoundation,styles,disposeBuildingMaterials} from './architecture/buildings.js?v=qingming02';
 const $=s=>document.querySelector(s),rng=n=>{const a=Math.sin(n*127.1+93.7)*43758.5453;return a-Math.floor(a)},clamp=THREE.MathUtils.clamp,mix=THREE.MathUtils.lerp;
 const ease=x=>{x=clamp(x,0,1);return x*x*(3-2*x)};
 let vaseRenderer;try{vaseRenderer=new THREE.WebGLRenderer({canvas:$('#vaseCanvas'),antialias:true,alpha:true})}catch(e){$('#err').hidden=false;throw e}
@@ -47,7 +47,7 @@ $('#branchSelect').addEventListener('change',e=>{activeBranch=entries.find(t=>St
 $('#swapStyle').addEventListener('click',()=>{if(!activeBranch)return;const e=activeBranch;e.style=(e.style+1)%styles[e.plan.type].length;dispose(e.group);e.group=createBuilding(e.plan,e.style);world.scene.add(e.group);e.start=world.time();updateBranchControls();$('#status').textContent=`第 ${e.branchId} 枝已换为${e.group.name}，位置和尺寸保持不变。`;});
 $('#removeBranch').addEventListener('click',()=>removeEntry(activeBranch));
 function updateCounts(){for(const k of Object.keys(counts))$(`#count-${k}`).textContent=String(counts[k]).padStart(2,'0');$('#total').textContent=entries.length?`${entries.length} 枝 · 成境`:'零枝 · 待春';$('#undo').disabled=!entries.length;updateBranchControls()}
-function dispose(g){g.removeFromParent();g.traverse(o=>{if(o.geometry&&![leafGeo,petalGeo,budGeo].includes(o.geometry))o.geometry.dispose()})}
+function dispose(g){disposeBuildingMaterials(g);g.removeFromParent();g.traverse(o=>{if(o.geometry&&![leafGeo,petalGeo,budGeo].includes(o.geometry))o.geometry.dispose()})}
 $('#undo').addEventListener('click',()=>removeEntry(entries.at(-1)));
 function clearPlanting(){for(const e of entries){dispose(e.group);dispose(e.plant)}entries=[];activeBranch=null;nextBranchId=1;counts={branch:0,leaf:0,flower:0};updateCounts();modeSet('draw');$('#status').textContent='画境已清空，按住鼠标重新画一笔。'}$('#clearBtn').addEventListener('click',clearPlanting);$('#demoBtn').addEventListener('click',()=>{clearPlanting();world.demo();$('#status').textContent='这是一幅示例山水，可以继续画山或在瓶边指定屋舍、林木的位置。'});$('#drawMode').addEventListener('click',()=>modeSet('draw'));$('#viewMode').addEventListener('click',()=>modeSet('view'));$('#cancel').addEventListener('click',()=>modeSet(mode));document.querySelectorAll('.material').forEach(b=>b.addEventListener('click',()=>select(b.dataset.kind)));addEventListener('keydown',e=>{if(e.key==='Escape'&&selected)modeSet(mode)});addEventListener('landscape-stroke',()=>{$('#status').textContent='山势随笔而起，溪水正沿坡流下。可再描一笔加高，或拾花定落点。'});
 function animate(){requestAnimationFrame(animate);const t=world.time();for(const e of entries){const grow=ease((t-e.start)/1.6);e.group.scale.setScalar(Math.max(.001,e.size*grow));e.group.position.y=Math.max(.08,world.surfaceAt(e.x,e.z));if(e.kind==='branch')fitFoundation(e.group,e.plan,e.x,e.z,world.surfaceAt);e.plant.scale.y=Math.max(.001,ease((t-e.start)/.7));}if(selected&&lastPreview){marker.position.y=Math.max(.12,world.surfaceAt(lastPreview.x,lastPreview.z)+.1);ring.scale.setScalar(1+Math.sin(t*3)*.05);updateConnector()}vaseRenderer.render(vaseScene,vaseCamera)}modeSet('draw');animate();
