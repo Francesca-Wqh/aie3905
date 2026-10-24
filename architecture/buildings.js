@@ -1,17 +1,17 @@
 import * as THREE from 'three';
-import {buildQingmingHouse} from './qingming-house.js?v=qingming02';
+import {buildQingmingHouse,buildQingmingResidence} from './qingming-house.js?v=courtyard03';
 import {roofGeometry, roofTilesGeometry, roofGableGeometry, roofSurfaceY} from './roof.js';
 
 // Roof surfaces adapted from WITHIN (MIT); modular architecture and placement are project additions.
 const material = color => new THREE.MeshStandardMaterial({color, roughness:.93});
 const mats = {wall:material('#e3d5b7'),wood:material('#68503d'),dark:material('#343f39'),stone:material('#a7a48e'),tile:material('#4b6060'),tileLight:material('#748580'),cloth:material('#b79a72')};
 mats.tile.side=THREE.DoubleSide;
-export const styles={house:['临街茶肆','汴京酒铺','双层客栈'],pavilion:['四角亭','六角亭']};
-export function dimensions(type,tier){return type==='pavilion'?{w:(2.8+tier*.25)*.35,d:(2.8+tier*.25)*.35}:{w:[3.2,4.4,5.6][tier]*.35,d:2.9*.35};}
+export const styles={house:['台十茶肆','汴京酒铺','逐亚客舍','小民居','围合小院'],pavilion:['四角亭','六角亭']};
+export function dimensions(type,tier){return type==='pavilion'?{w:(2.8+tier*.25)*.35,d:(2.8+tier*.25)*.35}:{w:[3.2,4.4,5.6][tier]*.55,d:2.9*.55};}
 export function inspectSite(surfaceAt,p,length,others=[],ignore=null,forcedTier=null){
   const height=surfaceAt(p.x,p.z),type=height>=2.4?'pavilion':'house';
   const desired=forcedTier??(length<1.1?0:length<1.95?1:2);
-  if(height<.18)return {valid:false,reason:'这里是水面，请换到陆地。'};
+  if(height<.18)return {valid:false,reason:'浅蓝是水面，请点击浅绿色岸地，那里可以直接安屋。'};
   for(let tier=desired;tier>=0;tier--){
     const dims=dimensions(type,tier),hw=dims.w/2+.1,hd=dims.d/2+.1;
     const samples=[];
@@ -20,7 +20,7 @@ export function inspectSite(surfaceAt,p,length,others=[],ignore=null,forcedTier=
     const slope=Math.hypot(surfaceAt(p.x+.4,p.z)-surfaceAt(p.x-.4,p.z),surfaceAt(p.x,p.z+.4)-surfaceAt(p.x,p.z-.4))/.8;
     if(min<.12||max-min>1.2||slope>1.0)continue;
     if(others.some(e=>e!==ignore&&e.kind==='branch'&&Math.abs(e.x-p.x)<(dims.w+e.plan.w)/2+.3&&Math.abs(e.z-p.z)<(dims.d+e.plan.d)/2+.3))continue;
-    return {valid:true,type,tier,...dims,base:max,defaultStyle:type==='pavilion'?(tier===2?1:0):tier,shrunk:tier<desired};
+    return {valid:true,type,tier,...dims,base:max,defaultStyle:type==='pavilion'?(tier===2?1:0):tier===0?3:4,shrunk:tier<desired};
   }
   return {valid:false,reason:'坡太陡、平台太窄或离建筑太近，请换个落点。'};
 }
@@ -54,7 +54,7 @@ export function createBuilding(plan,style=plan.defaultStyle){
   content=pavilion({...plan,w:plan.w/.35,d:plan.d/.35},style);content.scale.setScalar(.35);
  }else{
   // Preserve the original Song street proportions; fit the whole shop, including its awning.
-  content=buildQingmingHouse([5.2,7,9][plan.tier],4.8,style===2,[1,0,7][style]);
+  content=style>=3?buildQingmingResidence([5.2,7,9][plan.tier],4.8,style===4):buildQingmingHouse([5.2,7,9][plan.tier],4.8,style===2,[1,0,7][style]);
   const bounds=new THREE.Box3().setFromObject(content),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
   const scale=Math.min(plan.w/size.x,plan.d/size.z);
   content.scale.setScalar(scale);content.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);

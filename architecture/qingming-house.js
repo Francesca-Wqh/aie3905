@@ -1,10 +1,10 @@
 // Adapted from WITHIN, copyright (c) 2026 WITHIN contributors, MIT.
 // Original sources and adaptation notes: architecture/UPSTREAM.md.
 import * as THREE from 'three';
-import { createQingmingMaterials } from './qingming-materials.js?v=qingming02';
-import { buildQingmingShopFront } from './qingming-commerce.js?v=qingming02';
-import { clothCanopy, potteryJar, wovenBasket } from './qingming-details.js?v=qingming02';
-import { roofGeometry, roofTilesGeometry, roofGableGeometry, roofSurfaceY } from './roof.js?v=qingming02';
+import { createQingmingMaterials } from './qingming-materials.js?v=courtyard03';
+import { buildQingmingShopFront } from './qingming-commerce.js?v=courtyard03';
+import { clothCanopy, potteryJar, wovenBasket } from './qingming-details.js?v=courtyard03';
+import { roofGeometry, roofTilesGeometry, roofGableGeometry, roofSurfaceY } from './roof.js?v=courtyard03';
 const v = p => new THREE.Vector3(...p), mat = createQingmingMaterials();
 const wood = mat('#736051', 'wood'), dark = mat('#494238', 'wood'), plaster = mat('#d9d2c2', 'plaster'), tile = mat('#555e5b', 'tile'), tileLight = mat('#6a726c', 'tile'), stone = mat('#94958b', 'stone'), earth = mat('#9f9787', 'earth'), linen = mat('#c5bdab', 'plaster'), red = mat('#775951', 'plaster'), blue = mat('#526d6a', 'plaster'), ochre = mat('#a58b59', 'plaster');
 const streetMaterials = { wood, dark, linen, earth, stone, blue, clay: red };
@@ -16,7 +16,7 @@ function curveRod(g, points, r, m, segments = 16) { const mesh = new THREE.Mesh(
 function roof(g, w, d, y, h, detail = true) { const profile = { width: w, depth: d, base: y - .2, rise: h, detailed: detail }, roofMat = tile.clone(); roofMat.side = THREE.DoubleSide; const surface = new THREE.Mesh(roofGeometry(profile), roofMat); surface.name = 'qingming-roof-surface'; g.add(surface); const tiles = new THREE.Mesh(roofTilesGeometry(profile), tileLight); tiles.name = 'qingming-roof-cover-tiles'; g.add(tiles); beam(g, [-w / 2, y - .2 + h + .08, 0], [w / 2, y - .2 + h + .08, 0], .1, tileLight); for (const side of [-1, 1])
     curveRod(g, Array.from({ length: 9 }, (_, i) => { const x = (i / 8 - .5) * w, z = side * d / 2; return v([x, roofSurfaceY(profile, x, z) - .065, z]); }), .055, dark, 8); return profile; }
 // Only the sign atlas is replaced: self-contained browser canvas lettering, no remote assets.
-function sign(g, x, y, z, index) { box(g, [2, .68, .13], [x, y, z], dark); const names = ['陈酿酒坊', '清和茶肆', '本草药铺', '锦绣布庄', '竹木作坊', '文墨纸铺', '五谷粮行', '悦来客舍']; let m = signMaterials.get(index); if (!m) {
+function sign(g, x, y, z, index) { box(g, [2, .68, .13], [x, y, z], dark); const names = ['陈酿酒坊', '台十茶肆', '本草药铺', '锦绣布庄', '竹木作坊', '文墨纸铺', '五谷粮行', '逐亚客舍']; let m = signMaterials.get(index); if (!m) {
     if (typeof document !== 'undefined') {
         const c = document.createElement('canvas');
         c.width = 1024;
@@ -258,4 +258,36 @@ export function buildQingmingHouse(w, d, tall = false, index = 1) {
     } });
     g.userData.source = "WITHIN/qingming.ts house";
     return g;
+}
+
+// Residential compositions reuse the source's roof, textured materials and timber proportions.
+export function buildQingmingResidence(w=6,d=4.5,courtyard=false){
+ const root=new THREE.Group();root.userData.residential=true;root.userData.courtyard=courtyard;
+ function window(g,x,y,z,width=1.1,height=1.25){box(g,[width,height,.075],[x,y,z],dark);for(let i=0;i<=6;i++)box(g,[.035,height+.08,.045],[x-width/2+i*width/6,y,z+.06],wood);for(let i=0;i<=3;i++)box(g,[width+.08,.04,.05],[x,y-height/2+i*height/3,z+.065],wood);box(g,[width+.18,.11,.18],[x,y-height/2-.06,z],stone);}
+ function dwelling(width,depth,h){const g=new THREE.Group();g.name='residence-main-room';box(g,[width+.45,.24,depth+.45],[0,.12,0],stone);box(g,[width-.2,h,.18],[0,h/2+.24,-depth/2+.1],plaster);for(const side of [-1,1])box(g,[.18,h,depth],[side*(width/2-.09),h/2+.24,0],plaster);
+  // Front is framed around a recessed two-leaf doorway, instead of a solid wall with a painted door.
+  const front=depth/2;for(const side of [-1,1]){box(g,[(width-1.5)/2,h,.18],[side*(width/4+.375),h/2+.24,front],plaster);window(g,side*width*.31,1.78,front+.12,Math.min(1.35,width*.21));}
+  box(g,[1.5,h-2.4,.18],[0,2.64+(h-2.4)/2,front],plaster);box(g,[1.5,2.4,.12],[0,1.44,front-.15],dark);
+  for(const side of [-1,1]){const door=new THREE.Group();door.position.set(side*.72,.25,front+.12);door.rotation.y=side*.2;g.add(door);box(door,[.68,2.33,.09],[-side*.34,1.165,0],wood);for(let j=0;j<4;j++)box(door,[.55,.035,.035],[-side*.34,.3+j*.52,.065],dark);const ring=new THREE.Mesh(new THREE.TorusGeometry(.065,.014,5,12),ochre);ring.position.set(-side*.55,1.13,.07);door.add(ring);}
+  for(const x of [-width/2,-width*.16,width*.16,width/2])for(const z of [-depth/2,front+.13])box(g,[.13,h+.1,.14],[x,h/2+.27,z],wood);
+  for(const y of [.47,h+.2])box(g,[width+.2,.14,.16],[0,y,front+.15],wood);
+  const roofWidth=width+1.15,roofDepth=depth+1.3,rise=width*.29,t=(depth-.15)/roofDepth,base=h+.28-rise*(1-t+.23*t**4),profile=roof(g,roofWidth,roofDepth,base+.2,rise,true);g.add(new THREE.Mesh(roofGableGeometry(profile,width-.15,depth-.15,h+.24),plaster));
+  for(let i=0;i<18;i++){const x=(i/17-.5)*roofWidth;beam(g,[x,roofSurfaceY(profile,x,front-.1)-.1,front-.1],[x,roofSurfaceY(profile,x,front+.6)-.1,front+.6],.035,dark);}
+  for(const side of [-1,1]){box(g,[.14,.13,depth],[side*width/2,1,0],wood);box(g,[.14,.13,depth],[side*width/2,h+.12,0],wood);}
+  for(let i=0;i<2;i++)box(g,[1.85,.12,.4],[0,.06+i*.1,front+.6-i*.25],stone);return g;
+ }
+ if(!courtyard){root.add(dwelling(w,d,3.1));const jar=potteryJar(red);jar.scale.setScalar(1.5);jar.position.set(w*.38,.24,d/2+.3);root.add(jar);const basket=wovenBasket(.25,.4,ochre);basket.position.set(-w*.37,.24,d/2+.3);root.add(basket);}
+ else{
+  root.name='residence-courtyard';box(root,[10,.12,9.6],[0,.06,0],earth);
+  const main=dwelling(7,3.3,3.3);main.position.z=-2.65;root.add(main);
+  const wing=dwelling(4.6,2.5,2.6);wing.rotation.y=Math.PI/2;wing.position.set(-3.55,0,.8);wing.name='residence-side-room';root.add(wing);
+  // Low tiled walls define a real empty courtyard and a separate roofed entrance.
+  for(const x of [-4.8,4.8]){box(root,[.2,1.45,8.9],[x,.8,.15],plaster);box(root,[.34,.1,9.1],[x,1.56,.15],tile);}
+  for(const side of [-1,1]){box(root,[3.95,1.45,.2],[side*2.88,.8,4.65],plaster);box(root,[4.05,.12,.38],[side*2.88,1.56,4.65],tile);}
+  const gate=new THREE.Group();gate.name='residence-gate';gate.position.z=4.65;for(const side of [-1,1])box(gate,[.25,2.2,.3],[side*.87,1.1,0],wood);box(gate,[2,.18,.35],[0,2.18,0],wood);roof(gate,2.65,1.45,2.15,.55,true);root.add(gate);
+  for(let i=0;i<7;i++)box(root,[1.12,.04,.49],[0,.14,4.2-i*.57],stone);
+  const planter=new THREE.Mesh(new THREE.CylinderGeometry(.49,.38,.55,10),stone);planter.position.set(2.9,.35,1.6);root.add(planter);beam(root,[2.9,.5,1.6],[2.93,2.3,1.6],.065,wood);for(let i=0;i<7;i++){const a=i*2.4,leaf=new THREE.Mesh(new THREE.SphereGeometry(.46,7,5),mat('#738468'));leaf.scale.set(1,.65,.8);leaf.position.set(2.9+Math.cos(a)*.45,1.9+i*.09,1.6+Math.sin(a)*.42);root.add(leaf);}
+  box(root,[1.75,.1,.45],[2.5,.55,-.6],wood);for(const x of [1.85,3.15])box(root,[.12,.5,.35],[x,.3,-.6],wood);
+ }
+ root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(!shared.has(o.material))o.material.userData.buildingOwned=true;}});return root;
 }

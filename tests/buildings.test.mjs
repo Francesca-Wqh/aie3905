@@ -14,11 +14,11 @@ test('elevation picks architecture and length picks discrete width without stret
  assert.equal(inspectSite(()=>3,{x:0,z:0},1).type,'pavilion');
  const plans=[.8,1.5,2.4].map(length=>inspectSite(()=>1,{x:0,z:0},length));
  assert.deepEqual(plans.map(p=>p.tier),[0,1,2]);
- assert.deepEqual(plans.map(p=>p.w),[3.2*.35,4.4*.35,5.6*.35]);
- const narrow=inspectSite((x)=>Math.abs(x)<=.75?1:-1,{x:0,z:0},2.4);
+ assert.deepEqual(plans.map(p=>p.w),[3.2*.55,4.4*.55,5.6*.55]);
+ const narrow=inspectSite((x)=>Math.abs(x)<=1.2?1:-1,{x:0,z:0},2.4);
  assert.equal(narrow.valid,true);assert.equal(narrow.tier,0);assert.equal(narrow.shrunk,true);
 });
-test('all five styles contain finite geometry and a ground-fitting foundation',()=>{
+test('all seven styles contain finite geometry and a ground-fitting foundation',()=>{
  for(const height of [1,3])for(const length of [.8,1.5,2.4]){
   const plan=inspectSite(()=>height,{x:0,z:0},length);
   for(let style=0;style<styles[plan.type].length;style++){
@@ -49,3 +49,9 @@ test('houses use ported Qingming storefronts with distinct trade furnishings and
   assert.equal(shop.userData.shopKind,expected[style]);assert.ok(shop.userData.features.length>=3);assert.ok(roof.material.bumpMap);assert.ok(roof.material.map);assert.equal(rafters,23);assert.ok(lanterns>=1);assert.equal(pointLights,0);
  }
 });
+
+
+test('residential variants are closed dwellings and include a separate courtyard and gate',()=>{for(const style of [3,4]){const plan=inspectSite(()=>.5,{x:0,z:0},1.5),group=createBuilding(plan,style);let residence,gate,sideRoom;group.traverse(o=>{if(o.userData.residential)residence=o;if(o.name==='residence-gate')gate=o;if(o.name==='residence-side-room')sideRoom=o;});assert.ok(residence);assert.equal(residence.userData.courtyard,style===4);if(style===4){assert.ok(gate);assert.ok(sideRoom);}}});
+
+import {bankHeight,groundHeight} from '../ground.js';
+test('visible lowland exists before drawing and remains when mountains are cleared',()=>{let buildable=0;for(let x=-10;x<=6;x+=2)for(let z=-5;z<=7;z+=2){const plan=inspectSite(bankHeight,{x,z},1.5);if(plan.valid&&plan.type==='house')buildable++;}assert.ok(buildable>=45);assert.ok(bankHeight(-3,2)>.4);assert.ok(bankHeight(28,28)<0);assert.equal(groundHeight(-3,2,-1.2),bankHeight(-3,2));assert.equal(groundHeight(-3,2,7),7);assert.equal(inspectSite(bankHeight,{x:-3,z:2},.8).defaultStyle,3);assert.equal(inspectSite(bankHeight,{x:-3,z:2},1.5).defaultStyle,4);});

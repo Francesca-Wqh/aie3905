@@ -22,3 +22,5 @@ The architecture now ports the actual Qingming house and trade furnishings from 
 Full license: `vendor/WITHIN-LICENSE.txt`. Changes, provenance and standalone-scene adaptations: `architecture/UPSTREAM.md`.
 
 `vendor/BufferGeometryUtils.js` is from the official Three.js r160 package and follows `vendor/THREE-LICENSE.txt`.
+
+Residential rooms, courtyard layout, doors, walls and gate are project compositions using the adapted WITHIN roof and material helpers. `ground.js` adds a persistent buildable bank; water and mountains retain their existing rendering.
