@@ -1,0 +1,34 @@
+{
+  "generatedWith": "Blender 5.2.3 LTS",
+  "generatedOn": "2026-10-25",
+  "models": {
+    "pine": {
+      "file": "pine.glb",
+      "vertices": 49571,
+      "triangles": 32818,
+      "meshes": 5,
+      "bytes": 1347748
+    },
+    "maple": {
+      "file": "maple.glb",
+      "vertices": 28027,
+      "triangles": 43634,
+      "meshes": 6,
+      "bytes": 940048
+    },
+    "willow": {
+      "file": "willow.glb",
+      "vertices": 48055,
+      "triangles": 75790,
+      "meshes": 6,
+      "bytes": 1583592
+    },
+    "flowering": {
+      "file": "flowering.glb",
+      "vertices": 23394,
+      "triangles": 16920,
+      "meshes": 6,
+      "bytes": 664408
+    }
+  }
+}

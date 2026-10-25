@@ -4,10 +4,12 @@ The hand-drawn terrain, water shaders, streams, mist, and style controls in land
 Source: https://github.com/zhenmoran/ink-shan-shui
 License: vendor/INK-SHAN-SHUI-LICENSE.txt
 
-Three.js r160 and OrbitControls: copyright Three.js authors, MIT License.
+Three.js r160, OrbitControls, GLTFLoader, and BufferGeometryUtils: copyright Three.js authors, MIT License.
 License: vendor/THREE-LICENSE.txt
 
 The vase placement interface, vase models and directed planting are custom additions for 一瓶春山.
+
+The four production tree models are original procedural Blender models created for this project. Their source files, generator scripts, and modeling notes are in `assets/trees/SOURCES.md`.
 
 ## WITHIN architecture adaptation
 

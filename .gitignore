@@ -5,3 +5,6 @@ node_modules/
 .env.*
 !.env.example
 *.log
+*.blend1
+__pycache__/
+*.pyc
