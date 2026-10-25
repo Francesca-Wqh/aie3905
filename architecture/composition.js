@@ -27,3 +27,19 @@ export function orientationCandidates(surfaceAt,p,shape,context){
  return candidates.sort((a,b)=>a.score-b.score);
 }
 export function sceneScale(type,context){return type==='pavilion'?(context?.pavilionScale||1):(context?.scale||1);}
+
+// Balance the existing scene, while avoiding the same silhouette nearby.
+// Stable scores keep pointer previews and the final placement identical.
+export function chooseBuildingStyle(type,tier,p,others=[],ignore=null){
+ const preference=type==='pavilion'?(tier===2?[1,0]:[0,1]):tier===0?[3,4,0,1,2]:tier===1?[4,0,3,1,2]:[2,4,0,1,3];
+ const peers=others.filter(e=>e!==ignore&&e.kind==='branch'&&e.plan?.type===type);
+ const last=peers.at(-1),styleOf=e=>e.style??e.plan.defaultStyle;
+ let best=preference[0],bestScore=Infinity;
+ for(let rank=0;rank<preference.length;rank++){
+  const style=preference[rank];let score=rank*.12;
+  for(const e of peers)if(styleOf(e)===style){const distance=Math.hypot(e.x-p.x,e.z-p.z);score+=10+3*Math.max(0,1-distance/14);}
+  if(last&&styleOf(last)===style)score+=2;
+  if(score<bestScore){bestScore=score;best=style;}
+ }
+ return best;
+}

@@ -106,3 +106,24 @@ test('rotated footprints use oriented overlap checks and foundations sample thei
  for(let i=0;i<a.count;i++){if(a.getY(i)>=0)continue;const q=worldOffset(a.getX(i),a.getZ(i),plan.yaw);assert.ok(Math.abs(group.position.y+a.getY(i)-(surface(2+q.x,3+q.z)-.04))<1e-5);}
  fitFoundation(group,plan,2,3,()=>0);assert.equal(group.userData.skirt.visible,false);
 });
+
+test('repeated short branches automatically use all five house silhouettes and both pavilions',()=>{
+ for(const height of [0,3]){
+  const entries=[],count=height===0?5:2,sequence=[];
+  for(let i=0;i<count*3;i++){
+   const p={x:i*8,z:0},plan=resolveSite(()=>height,p,.8,entries);
+   assert.equal(plan.valid,true);assert.deepEqual(resolveSite(()=>height,p,.8,entries),plan);
+   if(i)assert.notEqual(plan.defaultStyle,sequence.at(-1));
+   sequence.push(plan.defaultStyle);entries.push({kind:'branch',...p,plan,style:plan.defaultStyle});
+  }
+  for(let i=0;i<sequence.length;i+=count)assert.equal(new Set(sequence.slice(i,i+count)).size,count);
+ }
+});
+test('automatic variety respects swapped styles, removal and non-building entries',()=>{
+ const p={x:0,z:0},plan=resolveSite(()=>0,p,.8),entry={kind:'branch',...p,plan,style:4};
+ assert.equal(plan.defaultStyle,3);
+ assert.equal(resolveSite(()=>0,{x:8,z:0},.8,[entry]).defaultStyle,3);
+ entry.style=3;assert.equal(resolveSite(()=>0,{x:8,z:0},.8,[entry]).defaultStyle,4);
+ assert.equal(resolveSite(()=>0,p,.8,[{kind:'leaf',...p}]).defaultStyle,3);
+ assert.equal(resolveSite(()=>0,p,.8,[]).defaultStyle,3);
+});

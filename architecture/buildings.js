@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {worldOffset,footprintSamples,footprintsOverlap,orientationCandidates,sceneScale} from './composition.js?v=compose07';
+import {worldOffset,footprintSamples,footprintsOverlap,orientationCandidates,sceneScale,chooseBuildingStyle} from './composition.js?v=variety08';
 import {placementHeight} from '../ground.js?v=mist06';
 import {buildDetailedPavilion} from './pavilions.js?v=pavilion04';
 import {buildQingmingHouse,buildQingmingResidence} from './qingming-house.js?v=eaves05';
@@ -16,7 +16,7 @@ export function inspectSite(surfaceAt,p,length,others=[],ignore=null,forcedTier=
    const slope=Math.hypot(sample(p.x+.4,p.z)-sample(p.x-.4,p.z),sample(p.x,p.z+.4)-sample(p.x,p.z-.4))/.8;
    if(max-min>1.2||slope>1)continue;
    if(others.some(e=>e!==ignore&&e.kind==='branch'&&footprintsOverlap({x:p.x,z:p.z,plan:shape},e)))continue;
-   return {valid:true,type,tier,...shape,base:max,defaultStyle:type==='pavilion'?(tier===2?1:0):tier===0?3:4,shrunk:tier<desired};
+   return {valid:true,type,tier,...shape,base:max,defaultStyle:chooseBuildingStyle(type,tier,p,others,ignore),shrunk:tier<desired};
   }
  }
  return {valid:false,reason:'这里较陡或离建筑太近，请稍微移开一点。'};
