@@ -25,7 +25,7 @@ test('all seven styles contain finite geometry and a ground-fitting foundation',
    const group=createBuilding(plan,style);fitFoundation(group,plan,0,0,(x,z)=>height+.02*x-.03*z);
    assert.equal(group.name,styles[plan.type][style]);let triangles=0;
    group.traverse(o=>{if(o.geometry){const pos=o.geometry.attributes.position;assert.ok([...pos.array].every(Number.isFinite));triangles+=pos.count/3;}});
-   assert.ok(triangles>100);assert.ok(group.userData.skirt);
+   assert.ok(triangles>100);if(plan.type==='pavilion'){assert.equal(group.userData.skirt,undefined);assert.equal(group.userData.piers,undefined);continue;}assert.ok(group.userData.skirt);
    const skirt=group.userData.skirt.geometry.attributes.position.array;
    for(let i=0;i<skirt.length;i+=3)if(skirt[i+1]<0)assert.ok(Math.abs(group.position.y+skirt[i+1]-(height+.02*skirt[i]-.03*skirt[i+2])+.04)<1e-5);
   }
@@ -85,7 +85,7 @@ test('residential beams, column heads and wall caps stay below the roof at every
  }
 });
 
-import {worldOffset,footprintsOverlap,orientationCandidates} from '../architecture/composition.js';
+import {worldOffset,footprintSamples,footprintsOverlap,orientationCandidates} from '../architecture/composition.js';
 test('scene buildings use distinct house and pavilion scales and keep a fixed three-quarter orientation',()=>{
  const context={cameraPosition:{x:0,y:25,z:40},focus:{x:0,z:0},scale:2.3,pavilionScale:.9};
  for(const [height,factor] of [[0,2.3],[3,.9]]){
@@ -128,12 +128,15 @@ test('automatic variety respects swapped styles, removal and non-building entrie
  assert.equal(resolveSite(()=>0,p,.8,[]).defaultStyle,3);
 });
 
-test('small pavilions fit mountain ridges and slopes with terrain-reaching feet',()=>{
+test('small pavilions embed their platforms into mountain slopes without added feet',()=>{
  const context={cameraPosition:{x:0,y:25,z:40},pavilionScale:.9};
  for(const surface of [(x,z)=>5+1.5*x,(x,z)=>6-2*Math.abs(x)-.2*z]){
   const plan=resolveSite(surface,{x:0,z:0},1.5,[],context);assert.equal(plan.valid,true);assert.equal(plan.type,'pavilion');assert.ok(plan.w<1.1);assert.ok(plan.relief<=1.05);
-  const group=createBuilding(plan);fitFoundation(group,plan,plan.x,plan.z,surface);assert.equal(group.userData.skirt.visible,false);assert.equal(group.userData.piers.length,4);
-  for(const foot of group.userData.piers){const q=worldOffset(foot.position.x,foot.position.z,group.rotation.y),ground=surface(plan.x+q.x,plan.z+q.z);assert.ok(Math.abs(group.position.y+foot.position.y-foot.scale.y/2-(ground-.04))<1e-6);}
+  const group=createBuilding(plan);fitFoundation(group,plan,plan.x,plan.z,surface);assert.equal(group.userData.skirt,undefined);assert.equal(group.userData.piers,undefined);
+  const samples=footprintSamples({x:plan.x,z:plan.z},{w:plan.w*.76,d:plan.d*.76,margin:0,yaw:plan.yaw});
+  const top=Math.max(...samples.map(q=>surface(q.x,q.z)));assert.ok(group.position.y<top,'platform bottom must intersect the mountain');assert.ok(top-group.position.y<=Math.max(.025,plan.w*.08)+1e-6,'only the lower platform should be inset');
+  const previous=group.position.y;fitFoundation(group,plan,plan.x,plan.z,(x,z)=>surface(x,z)+.4);assert.ok(Math.abs(group.position.y-previous-.4)<1e-6);
+  let extraFoot=false;group.traverse(o=>{if(o.name==='pavilion-slope-foot')extraFoot=true;});assert.equal(extraFoot,false);
  }
  const cliff=x=>x>0?8:0;assert.equal(inspectSite(cliff,{x:.01,z:0},.8,[],null,null,context).valid,false);
  const plan=resolveSite(cliff,{x:.01,z:0},.8,[],context);assert.equal(plan.valid,true);assert.equal(plan.snapped,true);assert.ok(plan.x>0);assert.equal(plan.type,'pavilion');

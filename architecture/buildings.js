@@ -57,8 +57,9 @@ export function disposeBuildingMaterials(group){const materials=new Set();group.
 // A continuous stone skirt follows the sampled ground instead of leaving floating corners.
 export function fitFoundation(group,plan,x,z,surfaceAt){const hw=plan.w/2+(plan.margin??.1),hd=plan.d/2+(plan.margin??.1),points=[[-hw,-hd],[0,-hd],[hw,-hd],[hw,0],[hw,hd],[0,hd],[-hw,hd],[-hw,0]];const heights=points.map(([dx,dz])=>{const q=worldOffset(dx,dz,group.rotation.y);return placementHeight(surfaceAt(x+q.x,z+q.z));});const base=Math.max(placementHeight(surfaceAt(x,z)),...heights)+.025;group.position.set(x,base,z);
  if(plan.type==='pavilion'){
-  let piers=group.userData.piers;
-  if(!piers){piers=[];for(const [u,v] of [[-1,-1],[1,-1],[1,1],[-1,1]]){const pier=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mats.stone);pier.name='pavilion-slope-foot';pier.userData.offset={x:u*plan.w*.32,z:v*plan.d*.32};group.add(pier);piers.push(pier);}group.userData.piers=piers;}
-  for(const pier of piers){const local=pier.userData.offset,q=worldOffset(local.x,local.z,group.rotation.y),bottom=placementHeight(surfaceAt(x+q.x,z+q.z))-base-.04,h=Math.max(.04,.035-bottom);pier.position.set(local.x,.035-h/2,local.z);pier.scale.set(Math.max(.045,plan.w*.055),h,Math.max(.045,plan.d*.055));}
+  // Seat the stone platform into the hill, using its footprint rather than the roof overhang.
+  const support=footprintSamples({x,z},{w:plan.w*.76,d:plan.d*.76,margin:0,yaw:group.rotation.y});
+  group.position.y=Math.max(...support.map(q=>placementHeight(surfaceAt(q.x,q.z))))-Math.max(.025,plan.w*.08);
+  return;
  }
  let skirt=group.userData.skirt;if(!skirt){const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(8*6*3),3));skirt=new THREE.Mesh(geometry,mats.stone);group.add(skirt);group.userData.skirt=skirt;}skirt.visible=plan.type!=='pavilion'&&Math.max(...heights)-Math.min(...heights)>.06;const arr=skirt.geometry.attributes.position.array;let k=0;for(let i=0;i<8;i++){const j=(i+1)%8,[ax,az]=points[i],[bx,bz]=points[j],ay=heights[i]-base-.04,by=heights[j]-base-.04;for(const v of [[ax,.03,az],[bx,by,bz],[ax,ay,az],[ax,.03,az],[bx,.03,bz],[bx,by,bz]])for(const c of v)arr[k++]=c;}skirt.geometry.attributes.position.needsUpdate=true;skirt.geometry.computeVertexNormals();skirt.geometry.computeBoundingSphere();}
