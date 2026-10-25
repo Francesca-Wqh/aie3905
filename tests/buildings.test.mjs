@@ -2,10 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {inspectSite,resolveSite,createBuilding,fitFoundation,styles} from '../architecture/buildings.js';
 import {roofSurfaceY,roofGeometry,roofTilesGeometry} from '../architecture/roof.js';
-test('cloud ground allows placement while steep slopes, narrow platforms and occupied footprints are rejected',()=>{
+test('cloud ground and narrow pavilion platforms allow placement while steep house slopes and occupied sites are rejected',()=>{
  assert.equal(inspectSite(()=>-.5,{x:0,z:0},1).valid,true);
  assert.equal(inspectSite(x=>3+x*2,{x:0,z:0},1).valid,false);
- assert.equal(inspectSite((x,z)=>Math.abs(x)<.5&&Math.abs(z)<.5?3:-1,{x:0,z:0},1).valid,false);
+ assert.equal(inspectSite((x,z)=>Math.abs(x)<.5&&Math.abs(z)<.5?3:-1,{x:0,z:0},1).valid,true);
  const occupied={kind:'branch',x:0,z:0,plan:{w:3.2,d:2.9}};
  assert.equal(inspectSite(()=>1,{x:0,z:0},1,[occupied]).valid,false);
  assert.equal(inspectSite(()=>1,{x:0,z:0},1,[occupied],occupied).valid,true);
@@ -25,7 +25,7 @@ test('all seven styles contain finite geometry and a ground-fitting foundation',
    const group=createBuilding(plan,style);fitFoundation(group,plan,0,0,(x,z)=>height+.02*x-.03*z);
    assert.equal(group.name,styles[plan.type][style]);let triangles=0;
    group.traverse(o=>{if(o.geometry){const pos=o.geometry.attributes.position;assert.ok([...pos.array].every(Number.isFinite));triangles+=pos.count/3;}});
-   assert.ok(triangles>100);assert.ok(group.userData.skirt);
+   assert.ok(triangles>100);if(plan.type==='pavilion'){assert.equal(group.userData.skirt,undefined);assert.equal(group.userData.piers,undefined);continue;}assert.ok(group.userData.skirt);
    const skirt=group.userData.skirt.geometry.attributes.position.array;
    for(let i=0;i<skirt.length;i+=3)if(skirt[i+1]<0)assert.ok(Math.abs(group.position.y+skirt[i+1]-(height+.02*skirt[i]-.03*skirt[i+2])+.04)<1e-5);
   }
@@ -37,7 +37,7 @@ test('WITHIN roof tiles meet the same curved roof surface',()=>{
  for(const geo of [roofGeometry(p),roofTilesGeometry(p)]){assert.ok([...geo.attributes.position.array].every(Number.isFinite));assert.ok(geo.index.count>0);}
 });
 
-test('nearby platform placement remains deterministic beside a steep cliff',()=>{const terrain=x=>x>0?3:0;const plan=resolveSite(terrain,{x:.5,z:0},.8);assert.equal(plan.valid,true);assert.equal(plan.snapped,true);assert.ok(Math.abs(plan.x-.5)<=.9);assert.deepEqual(resolveSite(terrain,{x:.5,z:0},.8),plan);assert.equal(resolveSite(()=>-1.45,{x:-10,z:0},.8).valid,true);});
+test('nearby platform placement remains deterministic beside a steep cliff',()=>{const terrain=x=>x>0?3:0;const plan=resolveSite(terrain,{x:.5,z:0},.8);assert.equal(plan.valid,true);assert.ok(Math.abs(plan.x-.5)<=2.4);assert.deepEqual(resolveSite(terrain,{x:.5,z:0},.8),plan);assert.equal(resolveSite(()=>-1.45,{x:-10,z:0},.8).valid,true);});
 
 test('houses use ported Qingming storefronts with distinct trade furnishings and textured tiled roofs',()=>{
  const expected=['tea-food','wine','inn'];
@@ -83,4 +83,65 @@ test('residential beams, column heads and wall caps stay below the roof at every
    });assert.ok(checked>30);
   }
  }
+});
+
+import {worldOffset,footprintSamples,footprintsOverlap,orientationCandidates} from '../architecture/composition.js';
+test('scene buildings use distinct house and pavilion scales and keep a fixed three-quarter orientation',()=>{
+ const context={cameraPosition:{x:0,y:25,z:40},focus:{x:0,z:0},scale:2.3,pavilionScale:.9};
+ for(const [height,factor] of [[0,2.3],[3,.9]]){
+  const original=inspectSite(()=>height,{x:-8,z:0},1.5),plan=inspectSite(()=>height,{x:-8,z:0},1.5,[],null,null,context),a=createBuilding(original),b=createBuilding(plan);
+  assert.ok(Math.abs(plan.w-original.w*factor)<1e-8);const ah=new THREE.Box3().setFromObject(a).getSize(new THREE.Vector3()).y,bh=new THREE.Box3().setFromObject(b).getSize(new THREE.Vector3()).y;assert.ok(Math.abs(bh/ah-factor)<1e-6);assert.equal(b.rotation.y,plan.yaw);
+  assert.equal(createBuilding(plan,(plan.defaultStyle+1)%styles[plan.type].length).rotation.y,plan.yaw);
+ }
+ const left=resolveSite(()=>0,{x:-8,z:0},1.5,[],context),right=resolveSite(()=>0,{x:8,z:0},1.5,[],context);
+ assert.ok(left.yaw>0&&right.yaw<0);assert.deepEqual(resolveSite(()=>0,{x:-8,z:0},1.5,[],context),left);
+ const bearing=Math.atan2(8,40);assert.ok(Math.abs(left.yaw-bearing)>=20*Math.PI/180-.001&&Math.abs(left.yaw-bearing)<=42*Math.PI/180+.001);
+ const candidates=orientationCandidates(x=>x>1?3:0,{x:0,z:0},{w:1,d:4},context);assert.ok(candidates[0].yaw<0,'entrance should turn away from the nearby uphill obstruction');
+});
+test('rotated footprints use oriented overlap checks and foundations sample their actual world locations',()=>{
+ assert.equal(footprintsOverlap({x:0,z:0,w:6,d:1,yaw:Math.PI/4},{x:1.1,z:1.1,w:6,d:1,yaw:Math.PI/4},0),false);
+ assert.equal(footprintsOverlap({x:0,z:0,w:6,d:1,yaw:Math.PI/4},{x:0,z:0,w:6,d:1,yaw:-Math.PI/4},0),true);
+ const plan={...inspectSite(()=>.5,{x:0,z:0},1.5),yaw:Math.PI/4},group=createBuilding(plan),surface=(x,z)=>1+.12*x+.08*z;fitFoundation(group,plan,2,3,surface);
+ const a=group.userData.skirt.geometry.attributes.position;
+ for(let i=0;i<a.count;i++){if(a.getY(i)>=0)continue;const q=worldOffset(a.getX(i),a.getZ(i),plan.yaw);assert.ok(Math.abs(group.position.y+a.getY(i)-(surface(2+q.x,3+q.z)-.04))<1e-5);}
+ fitFoundation(group,plan,2,3,()=>0);assert.equal(group.userData.skirt.visible,false);
+});
+
+test('repeated short branches automatically use all five house silhouettes and both pavilions',()=>{
+ for(const height of [0,3]){
+  const entries=[],count=height===0?5:2,sequence=[];
+  for(let i=0;i<count*3;i++){
+   const p={x:i*8,z:0},plan=resolveSite(()=>height,p,.8,entries);
+   assert.equal(plan.valid,true);assert.deepEqual(resolveSite(()=>height,p,.8,entries),plan);
+   if(i)assert.notEqual(plan.defaultStyle,sequence.at(-1));
+   sequence.push(plan.defaultStyle);entries.push({kind:'branch',...p,plan,style:plan.defaultStyle});
+  }
+  for(let i=0;i<sequence.length;i+=count)assert.equal(new Set(sequence.slice(i,i+count)).size,count);
+ }
+});
+test('automatic variety respects swapped styles, removal and non-building entries',()=>{
+ const p={x:0,z:0},plan=resolveSite(()=>0,p,.8),entry={kind:'branch',...p,plan,style:4};
+ assert.equal(plan.defaultStyle,3);
+ assert.equal(resolveSite(()=>0,{x:8,z:0},.8,[entry]).defaultStyle,3);
+ entry.style=3;assert.equal(resolveSite(()=>0,{x:8,z:0},.8,[entry]).defaultStyle,4);
+ assert.equal(resolveSite(()=>0,p,.8,[{kind:'leaf',...p}]).defaultStyle,3);
+ assert.equal(resolveSite(()=>0,p,.8,[]).defaultStyle,3);
+});
+
+test('small pavilions embed their platforms into mountain slopes without added feet',()=>{
+ const context={cameraPosition:{x:0,y:25,z:40},pavilionScale:.9};
+ for(const surface of [(x,z)=>5+1.5*x,(x,z)=>6-2*Math.abs(x)-.2*z]){
+  const plan=resolveSite(surface,{x:0,z:0},1.5,[],context);assert.equal(plan.valid,true);assert.equal(plan.type,'pavilion');assert.ok(plan.w<1.1);assert.ok(plan.relief<=1.05);
+  const group=createBuilding(plan);fitFoundation(group,plan,plan.x,plan.z,surface);assert.equal(group.userData.skirt,undefined);assert.equal(group.userData.piers,undefined);
+  const samples=footprintSamples({x:plan.x,z:plan.z},{w:plan.w*.76,d:plan.d*.76,margin:0,yaw:plan.yaw});
+  const top=Math.max(...samples.map(q=>surface(q.x,q.z)));assert.ok(group.position.y<top,'platform bottom must intersect the mountain');assert.ok(top-group.position.y<=Math.max(.025,plan.w*.08)+1e-6,'only the lower platform should be inset');
+  const previous=group.position.y;fitFoundation(group,plan,plan.x,plan.z,(x,z)=>surface(x,z)+.4);assert.ok(Math.abs(group.position.y-previous-.4)<1e-6);
+  let extraFoot=false;group.traverse(o=>{if(o.name==='pavilion-slope-foot')extraFoot=true;});assert.equal(extraFoot,false);
+ }
+ const cliff=x=>x>0?8:0;assert.equal(inspectSite(cliff,{x:.01,z:0},.8,[],null,null,context).valid,false);
+ const plan=resolveSite(cliff,{x:.01,z:0},.8,[],context);assert.equal(plan.valid,true);assert.equal(plan.snapped,true);assert.ok(plan.x>0);assert.equal(plan.type,'pavilion');
+});
+test('occupied mountain sites stay blocked and give a distinct spacing message',()=>{
+ const plan=inspectSite(()=>4,{x:0,z:0},.8),entry={kind:'branch',x:0,z:0,plan:{...plan,w:12,d:12},style:0};
+ const result=resolveSite(()=>4,{x:0,z:0},.8,[entry]);assert.equal(result.valid,false);assert.match(result.reason,/已有建筑/);
 });

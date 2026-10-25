@@ -1330,7 +1330,7 @@ function tick() {
   }
 
   updateDecor();
-  controls.update();
+  controls.update(dt);
   applyCamAnim(dt);
 
   renderer.render(scene, camera);
@@ -1509,7 +1509,7 @@ window.__booted = true;
 export const landscape={scene,camera,controls,renderer,canvas,surfaceAt,placementAt:(x,z)=>placementHeight(surfaceAt(x,z)),slopeAt,screenToWorld,makePavilion,
  time:()=>nowT,
  pickSurface(sx,sy){_ndc.set(sx/innerWidth*2-1,-sy/innerHeight*2+1);camera.updateMatrixWorld();_ray.setFromCamera(_ndc,camera);const hits=_ray.intersectObject(terrain,false);if(hits.length&&hits[0].point.y>0)return{x:hits[0].point.x,z:hits[0].point.z};return screenToWorld(sx,sy);},
- setMode(mode){inputMode=mode;controls.mouseButtons.LEFT=mode==='view'?THREE.MOUSE.ROTATE:null;controls.touches.ONE=mode==='view'?THREE.TOUCH.ROTATE:null;canvas.style.cursor=mode==='draw'?'crosshair':'grab';},
+ setMode(mode){inputMode=mode;autoRotatePref=mode==='view';controls.autoRotate=autoRotatePref;if(mode==='view')startCamAnim();else camAnim=null;syncPanelState();controls.mouseButtons.LEFT=mode==='view'?THREE.MOUSE.ROTATE:null;controls.touches.ONE=mode==='view'?THREE.TOUCH.ROTATE:null;canvas.style.cursor=mode==='draw'?'crosshair':'grab';},
  reset(){resetAll();},
  demo(){resetAll();runDemo();window.dispatchEvent(new Event('landscape-stroke'));},
  view(){camAnim=null;const off=new THREE.Vector3().setFromSphericalCoords(R_VIEW,CFG.PHI_VIEW,0);camera.position.copy(controls.target).add(off);camera.lookAt(controls.target);controls.update();},
