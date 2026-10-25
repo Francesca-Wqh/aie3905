@@ -17,7 +17,7 @@ export function inspectSite(surfaceAt,p,length,others=[],ignore=null,forcedTier=
    const slope=Math.hypot(sample(p.x+.4,p.z)-sample(p.x-.4,p.z),sample(p.x,p.z+.4)-sample(p.x,p.z-.4))/.8;
    // Small hillside pavilions tolerate a stepped foundation; houses still need level ground.
    if(type==='pavilion'?(max-min>1.05||min<1.4):(max-min>1.2||slope>1))continue;
-   if(others.some(e=>e!==ignore&&e.kind==='branch'&&footprintsOverlap({x:p.x,z:p.z,plan:shape},e,type==='pavilion'?.18:.45))){blocked=true;continue;}
+   if(others.some(e=>e!==ignore&&e.kind==='branch'&&footprintsOverlap({x:p.x,z:p.z,plan:shape},e,type==='pavilion'?.18:.06))){blocked=true;continue;}
    return {valid:true,type,tier,...shape,base:max,relief:max-min,fitScale:fit,defaultStyle:chooseBuildingStyle(type,tier,p,others,ignore),shrunk:tier<desired||fit<1};
   }
  }
