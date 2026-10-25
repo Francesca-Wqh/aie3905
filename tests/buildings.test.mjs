@@ -84,3 +84,25 @@ test('residential beams, column heads and wall caps stay below the roof at every
   }
  }
 });
+
+import {worldOffset,footprintsOverlap,orientationCandidates} from '../architecture/composition.js';
+test('scene buildings are larger in all dimensions and keep a fixed three-quarter orientation',()=>{
+ const context={cameraPosition:{x:0,y:25,z:40},focus:{x:0,z:0},scale:2.3,pavilionScale:1.8};
+ for(const [height,factor] of [[0,2.3],[3,1.8]]){
+  const original=inspectSite(()=>height,{x:-8,z:0},1.5),plan=inspectSite(()=>height,{x:-8,z:0},1.5,[],null,null,context),a=createBuilding(original),b=createBuilding(plan);
+  assert.ok(Math.abs(plan.w-original.w*factor)<1e-8);const ah=new THREE.Box3().setFromObject(a).getSize(new THREE.Vector3()).y,bh=new THREE.Box3().setFromObject(b).getSize(new THREE.Vector3()).y;assert.ok(Math.abs(bh/ah-factor)<1e-6);assert.equal(b.rotation.y,plan.yaw);
+  assert.equal(createBuilding(plan,(plan.defaultStyle+1)%styles[plan.type].length).rotation.y,plan.yaw);
+ }
+ const left=resolveSite(()=>0,{x:-8,z:0},1.5,[],context),right=resolveSite(()=>0,{x:8,z:0},1.5,[],context);
+ assert.ok(left.yaw>0&&right.yaw<0);assert.deepEqual(resolveSite(()=>0,{x:-8,z:0},1.5,[],context),left);
+ const bearing=Math.atan2(8,40);assert.ok(Math.abs(left.yaw-bearing)>=20*Math.PI/180-.001&&Math.abs(left.yaw-bearing)<=42*Math.PI/180+.001);
+ const candidates=orientationCandidates(x=>x>1?3:0,{x:0,z:0},{w:1,d:4},context);assert.ok(candidates[0].yaw<0,'entrance should turn away from the nearby uphill obstruction');
+});
+test('rotated footprints use oriented overlap checks and foundations sample their actual world locations',()=>{
+ assert.equal(footprintsOverlap({x:0,z:0,w:6,d:1,yaw:Math.PI/4},{x:1.1,z:1.1,w:6,d:1,yaw:Math.PI/4},0),false);
+ assert.equal(footprintsOverlap({x:0,z:0,w:6,d:1,yaw:Math.PI/4},{x:0,z:0,w:6,d:1,yaw:-Math.PI/4},0),true);
+ const plan={...inspectSite(()=>.5,{x:0,z:0},1.5),yaw:Math.PI/4},group=createBuilding(plan),surface=(x,z)=>1+.12*x+.08*z;fitFoundation(group,plan,2,3,surface);
+ const a=group.userData.skirt.geometry.attributes.position;
+ for(let i=0;i<a.count;i++){if(a.getY(i)>=0)continue;const q=worldOffset(a.getX(i),a.getZ(i),plan.yaw);assert.ok(Math.abs(group.position.y+a.getY(i)-(surface(2+q.x,3+q.z)-.04))<1e-5);}
+ fitFoundation(group,plan,2,3,()=>0);assert.equal(group.userData.skirt.visible,false);
+});
