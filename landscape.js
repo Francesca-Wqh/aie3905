@@ -5,6 +5,7 @@
    笔迹 → 高程图 → 低多边形山水（Three.js r160）
    =========================================================================== */
 import * as THREE from 'three';
+import {placementHeight} from './ground.js?v=mist06';
 import { OrbitControls } from './vendor/OrbitControls.js';
 
 /* ============================ 一、可调参数 ============================ */
@@ -181,6 +182,7 @@ terrainGeo.rotateX(-Math.PI / 2);
 terrainGeo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(N * N * 3), 3));
 terrainGeo.setAttribute('aGrowStart', new THREE.BufferAttribute(growStart, 1));
 
+
 const terrainMat = new THREE.MeshStandardMaterial({
   vertexColors: true,
   flatShading: true,        // 低多边形质感
@@ -289,7 +291,7 @@ const waterMat = new THREE.ShaderMaterial({
               + sin(wp.z * 0.33 - uTime * uWaveSpeed * 0.8) * 0.45
               + sin((wp.x + wp.z) * 0.62 + uTime * uWaveSpeed * 1.7) * 0.25;
       w *= uWaveAmp;
-      wp.y += w;
+      // Preserve flowing colour while keeping the buildable mist ground at y=0.
       vWave  = w / max(uWaveAmp, 0.0001);
       vWorld = wp.xyz;
       vec4 mvPosition = viewMatrix * wp;
@@ -1504,12 +1506,12 @@ applyTheme('classic');
 
 window.__booted = true;
 
-export const landscape={scene,camera,controls,renderer,canvas,surfaceAt,slopeAt,screenToWorld,makePavilion,
+export const landscape={scene,camera,controls,renderer,canvas,surfaceAt,placementAt:(x,z)=>placementHeight(surfaceAt(x,z)),slopeAt,screenToWorld,makePavilion,
  time:()=>nowT,
  pickSurface(sx,sy){_ndc.set(sx/innerWidth*2-1,-sy/innerHeight*2+1);camera.updateMatrixWorld();_ray.setFromCamera(_ndc,camera);const hits=_ray.intersectObject(terrain,false);if(hits.length&&hits[0].point.y>0)return{x:hits[0].point.x,z:hits[0].point.z};return screenToWorld(sx,sy);},
  setMode(mode){inputMode=mode;controls.mouseButtons.LEFT=mode==='view'?THREE.MOUSE.ROTATE:null;controls.touches.ONE=mode==='view'?THREE.TOUCH.ROTATE:null;canvas.style.cursor=mode==='draw'?'crosshair':'grab';},
  reset(){resetAll();},
  demo(){resetAll();runDemo();window.dispatchEvent(new Event('landscape-stroke'));},
  view(){camAnim=null;const off=new THREE.Vector3().setFromSphericalCoords(R_VIEW,CFG.PHI_VIEW,0);camera.position.copy(controls.target).add(off);camera.lookAt(controls.target);controls.update();},
- support(x,z){if(surfaceAt(x,z)<.4){depositStroke([{x:x-1,z},{x,z},{x:x+1,z}],()=>.7);rebuildTerrain();}},
+ support(x,z){return placementHeight(surfaceAt(x,z));},
 };
