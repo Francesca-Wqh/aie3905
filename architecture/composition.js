@@ -1,5 +1,5 @@
 export function worldOffset(x,z,yaw=0){return {x:x*Math.cos(yaw)+z*Math.sin(yaw),z:-x*Math.sin(yaw)+z*Math.cos(yaw)};}
-export function footprintSamples(p,shape){const out=[];for(const u of [-1,0,1])for(const v of [-1,0,1]){const d=worldOffset(u*(shape.w/2+.1),v*(shape.d/2+.1),shape.yaw);out.push({x:p.x+d.x,z:p.z+d.z});}return out;}
+export function footprintSamples(p,shape){const out=[];for(const u of [-1,0,1])for(const v of [-1,0,1]){const d=worldOffset(u*(shape.w/2+(shape.margin??.1)),v*(shape.d/2+(shape.margin??.1)),shape.yaw);out.push({x:p.x+d.x,z:p.z+d.z});}return out;}
 export function footprintsOverlap(a,b,gap=.45){
  const aa=a.plan||a,bb=b.plan||b,ya=aa.yaw||0,yb=bb.yaw||0;
  const axes=[worldOffset(1,0,ya),worldOffset(0,1,ya),worldOffset(1,0,yb),worldOffset(0,1,yb)];
