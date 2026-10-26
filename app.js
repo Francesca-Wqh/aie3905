@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createWoodyBranch} from './plants/branch.js?v=branch12';
-import {createVaseLeafSprig} from './plants/vase-leaf.js?v=leaf3d1';
+import {createVaseLeafSprig} from './plants/vase-leaf.js?v=leaf3d2';
 import {landscape as world} from './landscape.js?v=dry14';
 import {resolveSite,createBuilding,fitFoundation,styles,disposeBuildingMaterials} from './architecture/buildings.js?v=row13';
 import {createVaseFlower,createSceneFlower,flowerSpecies,canPlantFlower,isSharedFlowerGeometry} from './flowers.js?v=flowers11';
