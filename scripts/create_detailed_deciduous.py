@@ -129,11 +129,11 @@ def create_maple():
     bark = common.material("Maple bark", (0.22, 0.105, 0.045), 0.96)
     bark_light = common.material("Maple bark ridges", (0.34, 0.18, 0.075), 0.92)
     leaf_mats = [
-        common.material("Maple leaf deep red", (0.45, 0.115, 0.075), 0.86),
-        common.material("Maple leaf red", (0.62, 0.19, 0.12), 0.84),
-        common.material("Maple leaf warm red", (0.72, 0.285, 0.16), 0.82),
+        common.material("Maple leaf deep green", (0.07, 0.23, 0.09), 0.86),
+        common.material("Maple leaf green", (0.14, 0.38, 0.16), 0.84),
+        common.material("Maple leaf warm green", (0.30, 0.52, 0.24), 0.82),
     ]
-    vein_mat = common.material("Maple veins", (0.24, 0.075, 0.045), 0.94)
+    vein_mat = common.material("Maple veins", (0.06, 0.16, 0.06), 0.94)
     bark_v, bark_f, ridge_v, ridge_f, vein_v, vein_f = [], [], [], [], [], []
     leaf_data = [([], []) for _ in leaf_mats]
     trunk_height = 2.08
