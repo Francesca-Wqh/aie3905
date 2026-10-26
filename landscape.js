@@ -427,280 +427,7 @@ const farMatB = new THREE.MeshBasicMaterial({ color: 0xa6bcc9, fog: true });
   scene.add(group);
 })();
 
-/* ====================== 六点八、山间溪流 ====================== */
-// 三步：① 沿笔迹（山脊）等距布源，再朝坡面两侧排水成路；② 沿路把地形切出浅沟；
-//       ③ 贴着沟铺一条会流动的水带。
-// 追踪用的是平滑后的高度（大尺度中心差分）——直接用逐格梯度会被山体高频噪声
-// 带着左右横跳，走出来的是一条锯齿而不是溪。再加一点方向惯性让它顺滑。
-
-const MAX_STREAMS  = 12;                 // 最多几条溪
-const STREAM_MIN_Y = 2.0;                // 源头最低海拔
-const SOURCE_GAP   = 3.2;                // 沿山脊每隔多远起一条溪
-const STREAM_STEP  = STEP * 1.05;        // 追踪步长（细一点，路径才连续）
-const CARVE_RADIUS = 1.20;               // 下切影响半径
-const CARVE_SIGMA  = 0.55;               // 下切高斯 σ
-const CARVE_DEPTH  = 0.62;               // 最大下切深度
-
-const carveMap = new Float32Array(N * N);   // 每个格子的下切量，refreshTerrain 里减掉
-let streamPaths = [];                       // [[{x,z}, ...], ...]
-let ridgeTrails = [];                       // 已画的每条笔迹（世界坐标），溪流的源头就从这上面取
-let streamMesh = null;
-let streamRevealAt = -99;                   // 溪流开始显现的时刻
-
-let _sseed = 1337;                          // 溪流专用伪随机（不占用地面装饰的随机序列）
-function srnd() { _sseed = (_sseed * 1664525 + 1013904223) % 4294967296; return _sseed / 4294967296; }
-
-// 平滑高度：取十字四点的均值。山体带着高频噪声，直接用逐格高度会：
-// ① 让梯度左右横跳 ② 把噪声的尖峰误判成"上坡"而提前收工。
-function smoothHeight(x, z, e) {
-  return (surfaceAt(x + e, z) + surfaceAt(x - e, z) +
-          surfaceAt(x, z + e) + surfaceAt(x, z - e)) * 0.25;
-}
-
-function traceWater(sx, sz, maxSteps, turn) {
-  const e = STEP * 3.2;                    // 平滑尺度：约 6 格
-  const lim = HALF - 2.4;
-  const pts = [{ x: sx, z: sz }];
-  let x = sx, z = sz;
-  let y = smoothHeight(x, z, e);
-  let dx = 0, dz = 0, hasDir = false;
-
-  for (let n = 0; n < maxSteps; n++) {
-    const gx = (smoothHeight(x + e, z, e) - smoothHeight(x - e, z, e)) / (2 * e);
-    const gz = (smoothHeight(x, z + e, e) - smoothHeight(x, z - e, e)) / (2 * e);
-    const m = Math.hypot(gx, gz);
-    if (m < 1e-4) break;                   // 到平地了，停
-    const ux0 = -gx / m, uz0 = -gz / m;
-    // 把最陡方向斜切一个角度再走。沿最陡方向会笔直冲进水里（山又陡，路径只有
-    // 几个单位长）；斜切之后就顺着山坡绕下去，路径长得多，也更像真山涧。
-    const ct = Math.cos(turn), st = Math.sin(turn);
-    let ux = ux0 * ct - uz0 * st;
-    let uz = ux0 * st + uz0 * ct;
-    if (hasDir) {                          // 惯性：让水路顺滑，不左右横跳
-      ux = ux * 0.62 + dx * 0.38;
-      uz = uz * 0.62 + dz * 0.38;
-      const l = Math.hypot(ux, uz) || 1;
-      ux /= l; uz /= l;
-    }
-    dx = ux; dz = uz; hasDir = true;
-
-    const nx = x + ux * STREAM_STEP, nz = z + uz * STREAM_STEP;
-    if (Math.abs(nx) > lim || Math.abs(nz) > lim) break;
-    const ny = smoothHeight(nx, nz, e);
-    if (ny > y + 0.05) break;              // 平滑后仍要爬升 → 收工，不逆流
-    pts.push({ x: nx, z: nz });
-    x = nx; z = nz; y = ny;
-    if (y <= 0.12) break;                  // 汇入水面
-  }
-  return pts.length >= 4 ? pts : null;
-}
-
-function findWaterSources() {
-  // 沿笔迹（也就是山脊）等距布源，再向两侧坡面各放一条。
-  //
-  // 为什么不用"从峰顶沿最陡方向下坡追踪"：山脊在水平方向只有 4 个单位宽
-  // （笔刷 σ 窄），直着冲下去路径只有三四个单位，出来是一小截断头水。
-  // 沿脊布源、垂直排水，数量多、分布匀，才是"山间处处有流水"的样子。
-  const out = [];
-  for (const trail of ridgeTrails) {
-    const n = trail.length;
-    if (n < 2) continue;
-
-    const arc = new Float32Array(n);
-    for (let p = 1; p < n; p++)
-      arc[p] = arc[p - 1] + Math.hypot(trail[p].x - trail[p - 1].x, trail[p].z - trail[p - 1].z);
-    const total = arc[n - 1];
-    if (total < 2.5) continue;
-
-    const cnt = Math.max(1, Math.round(total / SOURCE_GAP));
-    for (let k = 0; k < cnt; k++) {
-      const want = (k + 0.5) * total / cnt;
-      let q = 1;
-      while (q < n - 1 && arc[q] < want) q++;
-      const t = (want - arc[q - 1]) / Math.max(1e-6, arc[q] - arc[q - 1]);
-      const px = lerp(trail[q - 1].x, trail[q].x, t);
-      const pz = lerp(trail[q - 1].z, trail[q].z, t);
-
-      if (surfaceAt(px, pz) < STREAM_MIN_Y) continue;   // 太矮的那段脊不起溪
-
-      let tx = trail[q].x - trail[q - 1].x, tz = trail[q].z - trail[q - 1].z;
-      const m = Math.hypot(tx, tz) || 1; tx /= m; tz /= m;
-      const nx = -tz, nz = tx;                          // 脊线法向
-      // 两侧各一条，起点略微外移，免得两条溪挤在脊线上
-      out.push({ x: px + nx * 1.0, z: pz + nz * 1.0 });
-      out.push({ x: px - nx * 1.0, z: pz - nz * 1.0 });
-    }
-  }
-  if (out.length <= MAX_STREAMS) return out;
-
-  // 超了就按等步长抽稀，保持全山均匀，而不是砍掉后半座山
-  const step = out.length / MAX_STREAMS, keep = [];
-  for (let i = 0; i < MAX_STREAMS; i++) keep.push(out[Math.floor(i * step)]);
-  return keep;
-}
-
-function carveAlong(pts) {
-  const inv2s2 = 1 / (2 * CARVE_SIGMA * CARVE_SIGMA);
-  const R2 = CARVE_RADIUS * CARVE_RADIUS;
-  for (let p = 0; p < pts.length; p++) {
-    const cx = pts[p].x, cz = pts[p].z;
-    const cy = surfaceAt(cx, cz);
-    // 高处切得深；接近水面时收力，免得把岸线切穿
-    const depth = CARVE_DEPTH * clamp(cy / 3.2, 0.22, 1) * clamp((cy - 0.06) / 1.0, 0, 1);
-    if (depth <= 0.002) continue;
-    const i0 = Math.max(0, Math.floor((cx - CARVE_RADIUS + HALF) / STEP));
-    const i1 = Math.min(N - 1, Math.ceil((cx + CARVE_RADIUS + HALF) / STEP));
-    const j0 = Math.max(0, Math.floor((cz - CARVE_RADIUS + HALF) / STEP));
-    const j1 = Math.min(N - 1, Math.ceil((cz + CARVE_RADIUS + HALF) / STEP));
-    for (let j = j0; j <= j1; j++) {
-      const dz = (-HALF + j * STEP) - cz, row = j * N;
-      for (let i = i0; i <= i1; i++) {
-        const dx = (-HALF + i * STEP) - cx;
-        const d2 = dx * dx + dz * dz;
-        if (d2 > R2) continue;
-        const k = row + i;
-        const d = depth * Math.exp(-d2 * inv2s2);
-        if (d > carveMap[k]) carveMap[k] = d;   // 取 max：交汇处才不会越切越深
-      }
-    }
-  }
-}
-
-// 采样某点的下切量（双线性），用来避免把树种进溪沟里
-function sampleCarve(x, z) {
-  const fx = (x + HALF) / STEP, fz = (z + HALF) / STEP;
-  const i = Math.floor(fx), j = Math.floor(fz);
-  if (i < 0 || j < 0 || i >= N - 1 || j >= N - 1) return 0;
-  const tx = fx - i, tz = fz - j;
-  return lerp(lerp(carveMap[j * N + i],     carveMap[j * N + i + 1], tx),
-              lerp(carveMap[(j + 1) * N + i], carveMap[(j + 1) * N + i + 1], tx), tz);
-}
-
-// 找路 + 标记下切。返回是否真的切了（没切就不用重算地形）
-function traceStreams() {
-  carveMap.fill(0);
-  streamPaths = [];
-  let hasLand = false;
-  for (let k = 0; k < landAcc.length; k++) if (landAcc[k] > 0.02) { hasLand = true; break; }
-  if (!hasLand) return false;
-  const src = findWaterSources();
-  for (let i = 0; i < src.length; i++) {
-    // 每条溪换一个斜切方向，免得整片水都往同一边绕
-    const turn = (i % 2 ? 1 : -1) * (0.36 + srnd() * 0.30);
-    const path = traceWater(src[i].x, src[i].z, 320, turn);
-    if (path) { streamPaths.push(path); carveAlong(path); }
-  }
-  return streamPaths.length > 0;
-}
-
-const streamMat = new THREE.ShaderMaterial({
-  transparent: true, depthWrite: false, fog: true, side: THREE.DoubleSide,
-  uniforms: THREE.UniformsUtils.merge([
-    THREE.UniformsLib.fog,
-    {
-      uTime:   { value: 0 },
-      uReveal: { value: 0 },
-      uColorA: { value: new THREE.Color(0x74b6d2) },   // 水体
-      uColorB: { value: new THREE.Color(0xe4f4fa) }    // 碎光
-    }
-  ]),
-  vertexShader: /* glsl */`
-    uniform float uReveal;
-    varying vec2 vUv;
-    #include <fog_pars_vertex>
-    void main(){
-      vUv = uv;
-      vec4 wp = modelMatrix * vec4(position, 1.0);
-      wp.y = mix(-2.6, wp.y, uReveal);   // 生长期先沉到水面以下藏起来
-      vec4 mvPosition = viewMatrix * wp;
-      #include <fog_vertex>
-      gl_Position = projectionMatrix * mvPosition;
-    }`,
-  fragmentShader: /* glsl */`
-    uniform float uTime, uReveal;
-    uniform vec3  uColorA, uColorB;
-    varying vec2  vUv;
-    #include <fog_pars_fragment>
-    void main(){
-      float t = vUv.x;                   // 0 = 源头, 1 = 入水口
-      // 三道不同速度、不同密度的碎光条纹叠加；只用单频会被看成"虚线在滚动"
-      float s1 = fract(t * 7.0  - uTime * 0.40);
-      float s2 = fract(t * 17.0 - uTime * 0.77);
-      float s3 = fract(t * 3.0  - uTime * 0.22);
-      float f = smoothstep(0.00, 0.30, s1) * smoothstep(1.00, 0.62, s1) * 0.55
-              + smoothstep(0.00, 0.20, s2) * smoothstep(1.00, 0.72, s2) * 0.30
-              + smoothstep(0.00, 0.48, s3) * smoothstep(1.00, 0.44, s3) * 0.48;
-
-      float edge = 1.0 - smoothstep(0.28, 0.95, abs(vUv.y * 2.0 - 1.0));  // 两侧柔和收边
-      float cap  = smoothstep(0.00, 0.05, t) * smoothstep(1.00, 0.88, t); // 首尾淡出
-      float a = (0.18 + 0.38 * f) * edge * cap * uReveal;
-
-      vec3 col = mix(uColorA, uColorB, clamp(f, 0.0, 1.0));
-      gl_FragColor = vec4(col, a);
-      #include <fog_fragment>
-      #include <colorspace_fragment>   /* 自定义着色器必须自己做线性→sRGB 转换 */
-    }`
-});
-
-function buildStreamMesh() {
-  if (streamMesh) {
-    scene.remove(streamMesh);
-    streamMesh.geometry.dispose();
-    streamMesh = null;
-  }
-  if (!streamPaths.length) return;
-
-  const pos = [], uvs = [], idx = [];
-  let base = 0;
-
-  for (const path of streamPaths) {
-    const n = path.length;
-    const arc = new Float32Array(n);
-    for (let p = 1; p < n; p++)
-      arc[p] = arc[p - 1] + Math.hypot(path[p].x - path[p - 1].x, path[p].z - path[p - 1].z);
-    const total = arc[n - 1] || 1;
-
-    for (let p = 0; p < n; p++) {
-      const a = path[Math.max(0, p - 1)], b = path[Math.min(n - 1, p + 1)];
-      let dx = b.x - a.x, dz = b.z - a.z;
-      const m = Math.hypot(dx, dz) || 1; dx /= m; dz /= m;
-      const nx = -dz, nz = dx;                     // 左法向
-      const t = arc[p] / total;
-      // 短溪自动收窄：2 个单位长的水路配 1.8 个单位宽，出来是一块白斑
-      const lenScale = clamp(total / 6.0, 0.46, 1.0);
-      const w = (0.34 + 0.88 * Math.pow(t, 0.72)) * lenScale *
-                smooth01(Math.min(t, 1 - t) / 0.11 + 0.02);   // 首尾收成尖
-      const cx = path[p].x, cz = path[p].z;
-      const lx = cx + nx * w, lz = cz + nz * w;
-      const rx = cx - nx * w, rz = cz - nz * w;
-      // 两侧各自采样地表，让水带贴着沟走；抬升要盖过一格内的地形起伏，
-      // 否则低多边形三角面会把水带埋进去。
-      pos.push(lx, surfaceAt(lx, lz) + 0.09, lz);
-      pos.push(rx, surfaceAt(rx, rz) + 0.09, rz);
-      uvs.push(t, 1, t, 0);
-    }
-
-    for (let p = 0; p < n - 1; p++) {
-      const o = base + p * 2;
-      idx.push(o, o + 1, o + 2, o + 1, o + 3, o + 2);
-    }
-    base += n * 2;
-  }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  geo.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geo.setIndex(idx);
-  geo.computeBoundingSphere();
-
-  streamMesh = new THREE.Mesh(geo, streamMat);
-  streamMesh.renderOrder = 3;          // 水面(1) / 雾气(2) 之后
-  streamMesh.frustumCulled = false;
-  scene.add(streamMesh);
-}
-
-/* ====================== 六点九、画面风格（配色方案） ====================== */
-// 每个风格给出：地形色阶 / 水色 / 溪流色 / 树冠 HSL 范围 / 三盏灯的色与强度 / 推荐背景。
+// 每个风格给出：地形色阶 / 地面色 / 树冠 HSL 范围 / 三盏灯的色与强度 / 推荐背景。
 // 色阶档位与下面 RAMP 的 9 个高度一一对应，切换时只换颜色，不动高度。
 
 const THEMES = {
@@ -708,7 +435,6 @@ const THEMES = {
     label: '原色', bg: 'xuan',
     ramp: [0x2f4d55, 0x3d6165, 0x6b9977, 0x54825f, 0x55795f, 0x6f8a74, 0x97a698, 0xcbd3c8, 0xf2f5f0],
     deep: 0x9dbfd0, shallow: 0xdfeee9,
-    streamA: 0x74b6d2, streamB: 0xe2f2f9,
     leaf: [0.30, 0.07, 0.55, 0.22, 0.045, 0.050],
     hemi: [0xeef8ff, 0x8fae9f, 0.62],
     sun:  [0xfffbf2, 1.32],
@@ -720,7 +446,6 @@ const THEMES = {
     label: '水墨', bg: 'xuan',
     ramp: [0x2b3237, 0x3a4247, 0x515a5f, 0x475055, 0x5f686c, 0x788084, 0x98a0a3, 0xc8cfd1, 0xf5f6f6],
     deep: 0xa9bdc7, shallow: 0xe6eff2,
-    streamA: 0xb6d2e0, streamB: 0xf3f8fa,
     leaf: [0.55, 0.06, 0.10, 0.06, 0.038, 0.030],
     hemi: [0xf1f5f6, 0x8d9598, 0.60],
     sun:  [0xffffff, 1.30],
@@ -731,7 +456,6 @@ const THEMES = {
     label: '青绿', bg: 'qing',
     ramp: [0x1c4448, 0x2a6360, 0x53a06b, 0x3a8a54, 0x2d7a49, 0x4e9161, 0x86a97c, 0xd2ddc0, 0xf7f7e9],
     deep: 0x7fb5bb, shallow: 0xd9ecdc,
-    streamA: 0x7fe0c0, streamB: 0xf0fff8,
     leaf: [0.32, 0.06, 0.60, 0.20, 0.042, 0.040],
     hemi: [0xf2fbff, 0x7fa587, 0.66],
     sun:  [0xfff6e0, 1.40],
@@ -742,7 +466,6 @@ const THEMES = {
     label: '暮色', bg: 'mu',
     ramp: [0x33293c, 0x4a3a52, 0x9a7a72, 0x8a6a70, 0x7b5f6e, 0x92778c, 0xbca4b0, 0xe4d0d6, 0xfbf0ea],
     deep: 0x7a5f74, shallow: 0xe8cabe,
-    streamA: 0xffc98a, streamB: 0xfff4e2,
     leaf: [0.025, 0.075, 0.45, 0.18, 0.075, 0.050],
     hemi: [0xffe9d8, 0x9a7f86, 0.64],
     sun:  [0xffd9b0, 1.42],
@@ -753,7 +476,6 @@ const THEMES = {
     label: '夜月', bg: 'ye',
     ramp: [0x0c1826, 0x132436, 0x1d3b4c, 0x1a3346, 0x24405a, 0x33536b, 0x4d6d84, 0x8fa6ba, 0xe2ebf4],
     deep: 0x122a3e, shallow: 0x4d7590,
-    streamA: 0x9fd8ff, streamB: 0xf2fbff,
     leaf: [0.55, 0.08, 0.30, 0.18, 0.032, 0.030],
     hemi: [0x9fc0e8, 0x1e2c3c, 0.50],
     sun:  [0xd6e6ff, 0.90],
@@ -995,7 +717,6 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 /* ======================= 十、笔迹 → 高程图 ======================= */
 function depositStroke(pts, wfn) {
-  ridgeTrails.push(pts.map(p => ({ x: p.x, z: p.z })));
   const R2 = CFG.BRUSH_RADIUS * CFG.BRUSH_RADIUS;
   const inv2s2 = 1 / (2 * CFG.BRUSH_SIGMA * CFG.BRUSH_SIGMA);
   const n = pts.length;
@@ -1076,10 +797,6 @@ function refreshTerrain() {
         h = (fbm(x * 0.09 + 11.3, z * 0.09 + 5.7, 2) - 0.5) * 0.22 + 0.22;
       }
 
-      // 溪流下切：把水路切出一道浅沟（carveMap 由 traceStreams 填好）
-      const carve = carveMap[k];
-      if (carve > 0) h = Math.max(0, h - carve);
-
       const y = FLOOR + Math.max(h, 0);
 
       // 坡度（用已更新的邻点做后向差分，用于压暗陡坡，模拟皴擦）
@@ -1113,14 +830,9 @@ function refreshTerrain() {
   depthTex.needsUpdate = true;
 }
 
-/* ---------- 地形 / 溪流 一次性重建（落笔、清除、换风格都走这里） ---------- */
+/* ---------- 地形重建：保留原始山势，不再生成溪沟或水带 ---------- */
 function rebuildTerrain() {
-  carveMap.fill(0);
-  refreshTerrain();                 // ① 先算出不含溪沟的地形
-  const carved = traceStreams();    // ② 依地形找水路，并标记每格下切量
-  if (carved) refreshTerrain();     // ③ 带下切重算（水深贴图随之更新）
-  buildStreamMesh();                // ④ 贴着沟铺水带
-  streamRevealAt = nowT;            // 水从此刻开始淌出来
+  refreshTerrain();
 }
 
 /* ======================= 十一、树木 & 亭子 ======================= */
@@ -1134,7 +846,6 @@ function plantDecor() {
       const y = surfaceAt(s.x, s.z);
       if (y < CFG.TREE_MIN_H || y > CFG.TREE_MAX_H) continue;
       if (slopeAt(s.x, s.z) > CFG.TREE_MAX_SLOPE) continue;
-      if (sampleCarve(s.x, s.z) > 0.06) continue;      // 长在溪沟里的不种树
       // 避免过密
       let ok = true;
       for (const t of trees) { if (Math.hypot(t.x - s.x, t.z - s.z) < 1.5) { ok = false; break; } }
@@ -1247,8 +958,7 @@ function resetAll() {
   landAcc.fill(0);
   heights.fill(FLOOR);
   growStart.fill(1e9);
-  ridgeTrails = [];          // 笔迹也一并忘掉
-  rebuildTerrain();          // 内部会清掉溪沟与水带
+  rebuildTerrain();
 
   trees = [];
   treeSpots.forEach(s => s.used = false);
@@ -1306,11 +1016,6 @@ function tick() {
   const ts = terrainMat.userData.shader;
   if (ts) ts.uniforms.uTime.value = nowT;
   waterMat.uniforms.uTime.value = nowT;
-
-  // 溪流：等山体长到一半，水再从源头淌下来
-  streamMat.uniforms.uTime.value = nowT;
-  streamMat.uniforms.uReveal.value =
-    smooth01(clamp((nowT - streamRevealAt - 0.55) / 0.75, 0, 1));
 
   // 笔迹淡出
   if (trailTime > -90) {
@@ -1427,7 +1132,7 @@ function applyBackground(preset) {
   syncPanelState();
 }
 
-// 水色 / 溪流色 = 风格给的基调，往背景底色上拉一把。
+// 地面颜色采用风格基调，并与背景衔接。
 // 不这么做的话，初始画面整屏都是水面，换背景色等于没换。
 const _wc = new THREE.Color();
 function refreshWaterColors() {
@@ -1438,8 +1143,6 @@ function refreshWaterColors() {
   waterMat.uniforms.uDeep.value.set(T.deep).lerp(_wc, 0.50);
   waterMat.uniforms.uShallow.value.set(T.shallow).lerp(_wc, 0.34);
 
-  streamMat.uniforms.uColorA.value.set(T.streamA).lerp(_wc, 0.20);
-  streamMat.uniforms.uColorB.value.set(T.streamB).lerp(_wc, 0.10);
 }
 
 function applyTheme(id) {
@@ -1460,7 +1163,7 @@ function applyTheme(id) {
 
   applyBackground(BG_PRESETS.find(b => b.id === T.bg));   // 内含 refreshWaterColors
 
-  refreshTerrain();      // 顶点色重算（carveMap 还在，溪沟与水深不受影响）
+  refreshTerrain();      // 重算地形顶点色
   syncPanelState();
 }
 
