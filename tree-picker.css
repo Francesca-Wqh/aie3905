@@ -33,7 +33,7 @@
   color: var(--fg);
   background: color-mix(in srgb, var(--panel) 86%, transparent);
   border: 1px solid var(--line);
-  cursor: pointer;
+  cursor: default;
   transition: border-color .2s, background .2s, transform .2s, box-shadow .2s;
 }
 
@@ -51,21 +51,11 @@
 .tree-option.ready::after { background: #718970; }
 .tree-option.fallback::after { background: #a46e57; }
 
-.tree-option:hover {
-  transform: translateY(-1px);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
-}
-
 .tree-option.selected {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 9%, var(--panel));
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
-}
-
-.tree-option:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .tree-option svg {
@@ -79,7 +69,7 @@
   opacity: .88;
 }
 
-.tree-option[data-tree="maple"] svg { fill: #a86752; }
+.tree-option[data-tree="maple"] svg { fill: #5f8657; }
 .tree-option[data-tree="willow"] svg { fill: #779087; }
 .tree-option[data-tree="flowering"] svg { fill: #d4a2a7; }
 
@@ -118,6 +108,8 @@
 }
 
 .dock-instruction { margin: 9px 0; }
+
+#flowerSpecies { display: none !important; }
 
 @media (max-width: 600px) {
   .tree-picker { padding: 6px; }
