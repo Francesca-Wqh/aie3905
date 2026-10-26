@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {canPlantFlower, createVaseFlower, createSceneFlower, flowerSpecies} from '../flowers.js';
+import {canPlantFlower, chooseFlowerSpecies, createVaseFlower, createSceneFlower, flowerClusterSize, flowerSpecies, vaseFlowerSpecies} from '../flowers.js';
 
 const species = Object.keys(flowerSpecies);
+const vaseSpecies = ['magnolia', 'peach', 'narcissus'];
 
 function inspect(group) {
   let meshes = 0;
@@ -25,17 +26,17 @@ function inspect(group) {
 test('each spring flower has separate vase and scene models', () => {
   const endpoint = new THREE.Vector3(0.45, 2.75, 0);
   for (const key of species) {
-    const vase = createVaseFlower(key, endpoint);
     const scene = createSceneFlower(key, 23);
-    assert.equal(vase.userData.flowerSpecies, key);
-    assert.equal(vase.userData.flowerContext, 'vase');
     assert.equal(scene.userData.flowerSpecies, key);
     assert.equal(scene.userData.flowerContext, 'scene');
-    assert.notEqual(vase.name, scene.name);
-    assert.ok(inspect(vase).meshes >= 8);
     assert.ok(inspect(scene).meshes >= 12);
-    assert.ok(scene.userData.recommendedScale > 3);
+    assert.ok(scene.userData.recommendedScale > 1 && scene.userData.recommendedScale < 2.5);
   }
+  const vase = createVaseFlower(vaseFlowerSpecies, endpoint);
+  assert.equal(vase.userData.flowerSpecies, vaseFlowerSpecies);
+  assert.equal(vase.userData.flowerContext, 'vase');
+  assert.notEqual(vase.name, createSceneFlower(vaseFlowerSpecies, 23).name);
+  assert.ok(inspect(vase).meshes >= 8);
 });
 
 test('magnolia, peach and narcissus expose distinct botanical silhouettes', () => {
@@ -46,19 +47,36 @@ test('magnolia, peach and narcissus expose distinct botanical silhouettes', () =
   assert.ok(peach.names.has('peach-bloom'));
   assert.ok(peach.names.has('peach-bud'));
   assert.ok(narcissus.names.has('narcissus-bloom'));
+  assert.ok(inspect(createSceneFlower('camellia', 5)).names.has('camellia-bloom'));
+  assert.ok(inspect(createSceneFlower('azalea', 5)).names.has('azalea-bloom'));
   assert.ok(magnolia.size.y > peach.size.y);
   assert.ok(peach.meshes > magnolia.meshes);
   assert.ok(narcissus.size.x > 0.25 && narcissus.size.z > 0.25);
 });
 
 test('vase flowers follow the chosen endpoint while staying above the vase mouth', () => {
-  for (const key of species) {
+  for (const key of vaseSpecies) {
     const endpoint = new THREE.Vector3(-0.55, 2.95, 0);
     const flower = createVaseFlower(key, endpoint);
     const bounds = new THREE.Box3().setFromObject(flower);
     assert.ok(bounds.min.y >= 1.53);
     assert.ok(bounds.max.y > 2.7);
     assert.ok(bounds.min.x < -0.25);
+  }
+});
+
+test('scene flowers use seed-based color variations', () => {
+  const colorsFor = (group) => {
+    const colors = [];
+    group.traverse(object => {
+      if (!object.isMesh || !object.material?.color) return;
+      colors.push(object.material.color.getHex());
+    });
+    return colors;
+  };
+
+  for (const key of species) {
+    assert.notDeepEqual(colorsFor(createSceneFlower(key, 1)), colorsFor(createSceneFlower(key, 4)));
   }
 });
 
@@ -96,6 +114,16 @@ test('narcissus is limited to ground habitat', () => {
   assert.equal(canPlantFlower('narcissus', 'ground'), true);
   assert.equal(canPlantFlower('narcissus', 'mountain'), false);
   assert.equal(createSceneFlower('narcissus', 31, 'mountain').userData.flowerHabitat, 'ground');
+});
+
+test('flower species and cluster sizes follow habitat rules', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    assert.notEqual(chooseFlowerSpecies('mountain', seed), 'narcissus');
+    assert.ok(species.includes(chooseFlowerSpecies('ground', seed)));
+    assert.ok(flowerClusterSize('mountain', seed) >= 1 && flowerClusterSize('mountain', seed) <= 2);
+    assert.ok(flowerClusterSize('ground', seed) >= 1 && flowerClusterSize('ground', seed) <= 3);
+    assert.equal(flowerClusterSize('ground', seed, 1), 1);
+  }
 });
 
 test('mountain flowers are shorter, sparser and wind-shaped', () => {

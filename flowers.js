@@ -28,13 +28,24 @@ const materials = {
   narcissusLeaf: new THREE.MeshStandardMaterial({color: '#86ba78', roughness: 0.9, side: THREE.DoubleSide}),
   narcissusPetal: new THREE.MeshStandardMaterial({color: '#fffef8', emissive: '#fff7d7', emissiveIntensity: 0.25, roughness: 0.8}),
   narcissusTrumpet: new THREE.MeshStandardMaterial({color: '#ffd94d', emissive: '#f3a600', emissiveIntensity: 0.32, roughness: 0.76, side: THREE.DoubleSide}),
-  bulb: new THREE.MeshStandardMaterial({color: '#cbb985', roughness: 0.95})
+  bulb: new THREE.MeshStandardMaterial({color: '#cbb985', roughness: 0.95}),
+  camelliaBark: new THREE.MeshStandardMaterial({color: '#5c4940', roughness: 0.95}),
+  camelliaPetal: new THREE.MeshStandardMaterial({color: '#e95762', emissive: '#b82f46', emissiveIntensity: 0.25, roughness: 0.78}),
+  camelliaPetalLight: new THREE.MeshStandardMaterial({color: '#ffb0ae', emissive: '#e96f7a', emissiveIntensity: 0.24, roughness: 0.78}),
+  camelliaLeaf: new THREE.MeshStandardMaterial({color: '#4f8058', roughness: 0.88}),
+  azaleaBark: new THREE.MeshStandardMaterial({color: '#6b5145', roughness: 0.95}),
+  azaleaPetal: new THREE.MeshStandardMaterial({color: '#d85b9d', emissive: '#a53276', emissiveIntensity: 0.28, roughness: 0.78}),
+  azaleaPetalLight: new THREE.MeshStandardMaterial({color: '#ff9fc8', emissive: '#df5f9a', emissiveIntensity: 0.26, roughness: 0.78}),
+  azaleaCenter: new THREE.MeshStandardMaterial({color: '#ffd56b', emissive: '#eaa83b', emissiveIntensity: 0.25, roughness: 0.76}),
+  azaleaLeaf: new THREE.MeshStandardMaterial({color: '#5c8b5c', roughness: 0.88})
 };
 
 export const flowerSpecies = {
-  magnolia: {label: '玉兰', sceneLabel: '玉兰树', sceneScale: 3.15, habitats: ['ground', 'mountain']},
-  peach: {label: '桃花', sceneLabel: '桃花树', sceneScale: 3.35, habitats: ['ground', 'mountain']},
-  narcissus: {label: '水仙', sceneLabel: '水仙簇', sceneScale: 4.2, habitats: ['ground']}
+  magnolia: {label: '玉兰', sceneLabel: '玉兰树', sceneScale: 1.9, habitats: ['ground', 'mountain']},
+  peach: {label: '桃花', sceneLabel: '桃花树', sceneScale: 2.0, habitats: ['ground', 'mountain']},
+  narcissus: {label: '水仙', sceneLabel: '水仙簇', sceneScale: 1.45, habitats: ['ground']},
+  camellia: {label: '茶花', sceneLabel: '茶花丛', sceneScale: 1.55, habitats: ['ground', 'mountain']},
+  azalea: {label: '杜鹃', sceneLabel: '杜鹃丛', sceneScale: 1.35, habitats: ['ground', 'mountain']}
 };
 
 export function canPlantFlower(species, habitat) {
@@ -46,6 +57,19 @@ const random = value => {
   const n = Math.sin(value * 127.1 + 93.7) * 43758.5453;
   return n - Math.floor(n);
 };
+
+export function chooseFlowerSpecies(habitat = 'ground', seed = 1) {
+  const pool = habitat === 'mountain'
+    ? ['magnolia', 'peach', 'camellia', 'azalea']
+    : ['magnolia', 'peach', 'narcissus', 'camellia', 'azalea'];
+  return pool[Math.floor(random(seed + 13) * pool.length)];
+}
+
+export function flowerClusterSize(habitat = 'ground', seed = 1, nearby = 0) {
+  if (nearby > 0) return 1;
+  const maximum = habitat === 'mountain' ? 2 : 3;
+  return 1 + Math.floor(random(seed + 29) * maximum);
+}
 
 function tube(points, radius, material, radialSegments = 7) {
   const curve = new THREE.CatmullRomCurve3(points);
@@ -154,6 +178,52 @@ function addNarcissusBloom(parent, position, scale = 1, tilt = 0) {
   return bloom;
 }
 
+function addCamelliaBloom(parent, position, scale = 1, rotation = 0) {
+  const bloom = new THREE.Group();
+  bloom.name = 'camellia-bloom';
+  for (let ring = 0; ring < 2; ring++) {
+    const count = ring ? 7 : 6;
+    for (let i = 0; i < count; i++) {
+      const angle = i / count * Math.PI * 2 + rotation + ring * 0.24;
+      const radial = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+      const petal = new THREE.Mesh(petalGeometry, ring ? materials.camelliaPetalLight : materials.camelliaPetal);
+      const petalScale = ring ? 0.075 : 0.062;
+      petal.scale.set(petalScale * scale, (ring ? 0.115 : 0.095) * scale, 0.032 * scale);
+      petal.position.copy(radial).multiplyScalar((ring ? 0.08 : 0.055) * scale).add(new THREE.Vector3(0, 0.02 * scale, 0));
+      orientY(petal, radial.clone().multiplyScalar(0.78).add(new THREE.Vector3(0, 0.22, 0)));
+      bloom.add(petal);
+    }
+  }
+  const center = new THREE.Mesh(centerGeometry, materials.narcissusTrumpet);
+  center.scale.setScalar(0.028 * scale);
+  center.position.y = 0.025 * scale;
+  bloom.add(center);
+  bloom.position.copy(position);
+  parent.add(bloom);
+  return bloom;
+}
+
+function addAzaleaBloom(parent, position, scale = 1, rotation = 0) {
+  const bloom = new THREE.Group();
+  bloom.name = 'azalea-bloom';
+  for (let i = 0; i < 5; i++) {
+    const angle = i / 5 * Math.PI * 2 + rotation;
+    const radial = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle));
+    const petal = new THREE.Mesh(petalGeometry, i % 2 ? materials.azaleaPetal : materials.azaleaPetalLight);
+    petal.scale.set(0.052 * scale, 0.095 * scale, 0.026 * scale);
+    petal.position.copy(radial).multiplyScalar(0.06 * scale);
+    orientY(petal, radial.clone().multiplyScalar(0.82).add(new THREE.Vector3(0, 0.3, 0)));
+    bloom.add(petal);
+  }
+  const center = new THREE.Mesh(centerGeometry, materials.azaleaCenter);
+  center.scale.setScalar(0.022 * scale);
+  center.position.y = 0.02 * scale;
+  bloom.add(center);
+  bloom.position.copy(position);
+  parent.add(bloom);
+  return bloom;
+}
+
 function ribbonLeaf(height, width, bend, material) {
   const segments = 6;
   const positions = [];
@@ -239,20 +309,20 @@ function createVasePeach(endpoint, variation = 0) {
     new THREE.Vector3(end.x * 0.4 + fan * 0.22 + bend * 0.3, curvedVaseY(end.y, 0.48, lift), depth * 0.62),
     new THREE.Vector3(end.x * 0.75 - bend * 0.18, curvedVaseY(end.y, 0.76, lift), -depth * 0.4),
     end
-  ], 0.016, materials.peachBark, 7);
+  ], 0.012, materials.peachBark, 7);
   group.add(mesh);
   for (let i = 0; i < 4; i++) {
     const t = 0.34 + i * 0.17;
     const start = curve.getPoint(t);
     const side = i % 2 ? -1 : 1;
     const tip = start.clone().add(new THREE.Vector3(side * (0.13 + i * 0.015) + fan * 0.16, 0.105 + i * 0.012 + lift * 0.3, (i - 1.5) * 0.012));
-    group.add(branchBetween(start, tip, 0.0055, materials.peachBark));
-    addPeachBloom(group, tip, 0.78 + i * 0.05, i * 0.4);
-    if (i < 3) addPeachBud(group, tip.clone().add(new THREE.Vector3(side * 0.045, 0.045, 0)), 0.62);
-    if (i % 2 === 0) addPeachLeaf(group, start.clone().lerp(tip, 0.45), 0.72, side * 0.65);
+    group.add(branchBetween(start, tip, 0.004, materials.peachBark));
+    addPeachBloom(group, tip, 0.57 + i * 0.035, i * 0.4);
+    if (i < 3) addPeachBud(group, tip.clone().add(new THREE.Vector3(side * 0.045, 0.045, 0)), 0.46);
+    if (i % 2 === 0) addPeachLeaf(group, start.clone().lerp(tip, 0.45), 0.52, side * 0.65);
   }
-  addPeachBloom(group, end, 0.95, 0.25);
-  addPeachBud(group, curve.getPoint(0.9).add(new THREE.Vector3(-0.035, 0.04, 0.015)), 0.7);
+  addPeachBloom(group, end, 0.68, 0.25);
+  addPeachBud(group, curve.getPoint(0.9).add(new THREE.Vector3(-0.035, 0.04, 0.015)), 0.5);
   group.position.y = 1.54;
   return group;
 }
@@ -358,6 +428,105 @@ function createSceneNarcissus(seed) {
   return group;
 }
 
+function createSceneCamellia(seed) {
+  const group = new THREE.Group();
+  group.name = 'scene-camellia-shrub';
+  const trunkTop = new THREE.Vector3(0, 0.5, 0);
+  group.add(branchBetween(new THREE.Vector3(), trunkTop, 0.034, materials.camelliaBark));
+  for (let i = 0; i < 6; i++) {
+    const angle = i / 6 * Math.PI * 2 + random(seed + i) * 0.4;
+    const start = new THREE.Vector3(0, 0.18 + i * 0.035, 0);
+    const reach = 0.2 + random(seed + i * 7) * 0.14;
+    const tip = new THREE.Vector3(Math.cos(angle) * reach, 0.48 + random(seed + i * 11) * 0.2, Math.sin(angle) * reach);
+    group.add(branchBetween(start, tip, 0.013, materials.camelliaBark));
+    addCamelliaBloom(group, tip, 0.72 + random(seed + i * 3) * 0.14, angle);
+    const leaf = new THREE.Mesh(leafGeometry, materials.camelliaLeaf);
+    leaf.name = 'camellia-leaf';
+    leaf.scale.set(0.045, 0.1, 0.022);
+    leaf.position.copy(start.clone().lerp(tip, 0.68)).add(new THREE.Vector3(0, -0.035, 0));
+    leaf.rotation.z = angle;
+    group.add(leaf);
+  }
+  addCamelliaBloom(group, trunkTop.clone().add(new THREE.Vector3(0, 0.07, 0)), 0.78, 0.15);
+  return group;
+}
+
+function createSceneAzalea(seed) {
+  const group = new THREE.Group();
+  group.name = 'scene-azalea-shrub';
+  for (let i = 0; i < 8; i++) {
+    const angle = i / 8 * Math.PI * 2 + random(seed + i) * 0.35;
+    const radius = 0.05 + random(seed + i * 5) * 0.11;
+    const base = new THREE.Vector3(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
+    const top = base.clone().add(new THREE.Vector3(Math.cos(angle) * (0.1 + random(seed + i * 9) * 0.11), 0.35 + random(seed + i * 13) * 0.18, Math.sin(angle) * (0.1 + random(seed + i * 9) * 0.11)));
+    group.add(branchBetween(base, top, 0.008, materials.azaleaBark));
+    addAzaleaBloom(group, top, 0.68 + random(seed + i * 3) * 0.16, angle);
+    if (i % 2 === 0) {
+      const leaf = new THREE.Mesh(leafGeometry, materials.azaleaLeaf);
+      leaf.name = 'azalea-leaf';
+      leaf.scale.set(0.032, 0.075, 0.016);
+      leaf.position.copy(base.clone().lerp(top, 0.6));
+      leaf.rotation.z = angle + 0.6;
+      group.add(leaf);
+    }
+  }
+  return group;
+}
+
+const scenePalettes = {
+  magnolia: [
+    {petal: '#fff9f5', blush: '#ffc2ce', leaf: '#8db979', center: '#ffd94d'},
+    {petal: '#fff4ee', blush: '#f29bad', leaf: '#79a972', center: '#f6c75a'},
+    {petal: '#f8e9f3', blush: '#dd91b4', leaf: '#719a70', center: '#e6bd5c'}
+  ],
+  peach: [
+    {petal: '#ff75a0', light: '#ffc6d5', bud: '#ff4e82', leaf: '#82b772', center: '#ffd36a'},
+    {petal: '#f26e8d', light: '#ffb8c2', bud: '#e94c70', leaf: '#74a66e', center: '#f7c565'},
+    {petal: '#ff9a68', light: '#ffd0aa', bud: '#ef7350', leaf: '#7cae6d', center: '#f6ca62'}
+  ],
+  narcissus: [
+    {petal: '#fffef8', trumpet: '#ffd94d', leaf: '#86ba78', stem: '#77ad70'},
+    {petal: '#fff9e4', trumpet: '#f6b83c', leaf: '#7cad70', stem: '#6da267'},
+    {petal: '#f5f4ff', trumpet: '#e9b84c', leaf: '#829f83', stem: '#719079'}
+  ],
+  camellia: [
+    {petal: '#e95762', light: '#ffb0ae', leaf: '#4f8058', center: '#ffd36b'},
+    {petal: '#d94a72', light: '#f7a8c0', leaf: '#467853', center: '#f6c45b'},
+    {petal: '#f08a4f', light: '#ffd0a5', leaf: '#5b8556', center: '#f5c66a'}
+  ],
+  azalea: [
+    {petal: '#d85b9d', light: '#ff9fc8', leaf: '#5c8b5c', center: '#ffd56b'},
+    {petal: '#c55fae', light: '#e8a7df', leaf: '#547f5a', center: '#f2c45b'},
+    {petal: '#e85b72', light: '#ffb2a8', leaf: '#648f5b', center: '#f4c95e'}
+  ]
+};
+
+function setMaterialColor(object, color) {
+  if (!color || !object.isMesh) return;
+  object.material = object.material.clone();
+  object.material.color.set(color);
+}
+
+function applyScenePalette(group, species, seed) {
+  const palette = scenePalettes[species]?.[Math.floor(random(seed + 401) * scenePalettes[species].length)];
+  if (!palette) return;
+  group.traverse(object => {
+    if (!object.isMesh) return;
+    const parentName = object.parent?.name || '';
+    if (parentName === `${species}-bloom`) {
+      if (object.geometry === petalGeometry) setMaterialColor(object, object.parent.children.indexOf(object) % 2 ? palette.light || palette.petal : palette.petal);
+      else if (object.geometry === trumpetGeometry) setMaterialColor(object, palette.trumpet);
+      else if (object.geometry === centerGeometry) setMaterialColor(object, palette.center || palette.trumpet);
+    } else if (object.name.endsWith('-leaf')) {
+      setMaterialColor(object, palette.leaf);
+    } else if (object.geometry === bulbGeometry) {
+      setMaterialColor(object, palette.bulb);
+    } else if (object.geometry === petalGeometry && palette.petal) {
+      setMaterialColor(object, palette.petal);
+    }
+  });
+}
+
 function createMountainVariant(model, species, seed) {
   const root = new THREE.Group();
   root.name = `${model.name}-mountain`;
@@ -391,12 +560,21 @@ export function createVaseFlower(species, endpoint, variation = 0) {
   return group;
 }
 
+export const vaseFlowerSpecies = 'peach';
+
 export function createSceneFlower(species, seed = 1, habitat = 'ground') {
-  const creators = {magnolia: createSceneMagnolia, peach: createScenePeach, narcissus: createSceneNarcissus};
+  const creators = {
+    magnolia: createSceneMagnolia,
+    peach: createScenePeach,
+    narcissus: createSceneNarcissus,
+    camellia: createSceneCamellia,
+    azalea: createSceneAzalea
+  };
   const key = creators[species] ? species : 'magnolia';
   const requestedHabitat = habitat === 'mountain' ? 'mountain' : 'ground';
   const habitatKey = canPlantFlower(key, requestedHabitat) ? requestedHabitat : 'ground';
   const model = creators[key](seed);
+  applyScenePalette(model, key, seed);
   const group = habitatKey === 'mountain' ? createMountainVariant(model, key, seed) : model;
   group.userData.flowerSpecies = key;
   group.userData.flowerContext = 'scene';
