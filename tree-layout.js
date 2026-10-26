@@ -12,6 +12,10 @@ export function treeClusterCount(habitat,seed){
  return habitat==='mountain'?4+Math.floor(seeded(seed+121)*4):1+Math.floor(seeded(seed+121)*3);
 }
 
+export function terrainLocalY(surfaceHeight,clusterBase,clusterScale){
+ return (surfaceHeight-clusterBase)/clusterScale;
+}
+
 export function treeClusterLayout(habitat,seed,acceptOffset=()=>true){
  const target=treeClusterCount(habitat,seed),maxRadius=habitat==='mountain'?1.15:.72;
  const layout=[{x:0,z:0,scale:.92+seeded(seed+211)*.14,rotation:seeded(seed+313)*Math.PI*2}];
