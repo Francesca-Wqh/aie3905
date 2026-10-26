@@ -1508,7 +1508,7 @@ window.__booted = true;
 
 export const landscape={scene,camera,controls,renderer,canvas,surfaceAt,placementAt:(x,z)=>placementHeight(surfaceAt(x,z)),slopeAt,screenToWorld,makePavilion,
  time:()=>nowT,
- pickSurface(sx,sy){_ndc.set(sx/innerWidth*2-1,-sy/innerHeight*2+1);camera.updateMatrixWorld();_ray.setFromCamera(_ndc,camera);const hits=_ray.intersectObject(terrain,false);if(hits.length&&hits[0].point.y>0)return{x:hits[0].point.x,z:hits[0].point.z};return screenToWorld(sx,sy);},
+ pickSurface(sx,sy){_ndc.set(sx/innerWidth*2-1,-sy/innerHeight*2+1);camera.updateMatrixWorld();_ray.setFromCamera(_ndc,camera);const hits=_ray.intersectObject(terrain,false);if(hits.length&&hits[0].point.y>0)return{x:hits[0].point.x,y:hits[0].point.y,z:hits[0].point.z};const p=screenToWorld(sx,sy);return p?{...p,y:surfaceAt(p.x,p.z)}:null;},
  setMode(mode){inputMode=mode;autoRotatePref=mode==='view';controls.autoRotate=autoRotatePref;if(mode==='view')startCamAnim();else camAnim=null;syncPanelState();controls.mouseButtons.LEFT=mode==='view'?THREE.MOUSE.ROTATE:null;controls.touches.ONE=mode==='view'?THREE.TOUCH.ROTATE:null;canvas.style.cursor=mode==='draw'?'crosshair':'grab';},
  reset(){resetAll();},
  demo(){resetAll();runDemo();window.dispatchEvent(new Event('landscape-stroke'));},

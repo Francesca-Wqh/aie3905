@@ -15,6 +15,12 @@ python3 -m http.server 8000
 
 打开 http://localhost:8000/ 体验原型，http://localhost:8000/project/ 查看进度。请通过 HTTP 访问，勿直接双击 HTML。
 
+## 树木选择与放置
+
+右侧花材栏新增“画中树种”四格卡片，可选择松树、枫树、垂柳或花树。先选择树种，再点击“青叶”或“春花”，最后在花瓶旁指定落点；生成的画中树会使用当前选择的 3D 模型。“梅枝”仍生成屋舍。
+
+树木模型位于 `assets/trees/`，均为项目原创的中等精度 Blender 模型和自包含 GLB；加载失败时会自动使用原有程序化树木作为备用。可编辑 `.blend` 源文件在 `assets/trees/source/`，生成脚本在 `scripts/`，建模说明见 [`assets/trees/SOURCES.md`](assets/trees/SOURCES.md)。
+
 ## 三个实现板块
 
 | 板块 | 负责内容 | 任务 |
@@ -30,7 +36,8 @@ python3 -m http.server 8000
 - `index.html`、`style.css`：创作界面。
 - `app.js`：花瓶、花材、定点映射、场景物件与交互。
 - `landscape.js`：鼠标画山、山水环境与观山。
-- `vendor/`：Three.js、OrbitControls 和许可证。
+- `assets/trees/`：四种画中树木 GLB 模型及来源说明。
+- `vendor/`：Three.js、OrbitControls、GLTFLoader 和许可证。
 - `project/`：项目页；`project/data.json` 是任务与分工的统一记录。
 
 画山、插花、画中物件已有原型，尚未最终验收；手势捏瓶、专门开场、最终观赏流程待实现。
