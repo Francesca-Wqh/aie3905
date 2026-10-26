@@ -1,6 +1,6 @@
 {
   "generatedWith": "Blender 5.2.3 LTS",
-  "generatedOn": "2026-10-25",
+  "generatedOn": "2026-10-26",
   "models": {
     "pine": {
       "file": "pine.glb",
@@ -14,7 +14,7 @@
       "vertices": 28027,
       "triangles": 43634,
       "meshes": 6,
-      "bytes": 940048
+      "bytes": 940056
     },
     "willow": {
       "file": "willow.glb",
