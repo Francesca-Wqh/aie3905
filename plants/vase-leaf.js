@@ -10,7 +10,7 @@ function cylinderBetween(a,b,radius,material,segments=10){
 function sculptedLeafGeometry(){
  const positions=[],indices=[],steps=10,thickness=.045;
  for(let i=0;i<=steps;i++){
-  const t=i/steps,width=Math.pow(Math.sin(Math.PI*t),.72)*(1-.12*t),camber=Math.sin(Math.PI*t)*.16;
+  const t=i/steps,width=Math.pow(Math.sin(Math.PI*t),1.08)*(1-.2*t),camber=Math.sin(Math.PI*t)*.16;
   positions.push(-width,t,camber+thickness,width,t,camber+thickness,-width,t,camber-thickness,width,t,camber-thickness);
  }
  for(let i=0;i<steps;i++){
@@ -46,10 +46,10 @@ export function createVaseLeafSprig(endpoint,variation=0){
   const outward=new THREE.Vector3(side*(.18+.025*(i%3)),.105+.018*i,depth),twigEnd=p.clone().add(outward);
   group.add(cylinderBetween(p,twigEnd,.0065,stemMaterial,8));
   const direction=new THREE.Vector3(side*(.7+.08*(i%2)),.68+.04*i,depth*2.2).normalize();
-  addLeaf(group,geometry,leafMaterials[i%leafMaterials.length],veinMaterial,twigEnd,direction,.085+.007*(i%3),.27+.018*(i%2),side*.22+depth);
+  addLeaf(group,geometry,leafMaterials[i%leafMaterials.length],veinMaterial,twigEnd,direction,.056+.004*(i%3),.27+.018*(i%2),side*.22+depth);
  }
  const tip=curve.getPoint(.93),tipDirections=[new THREE.Vector3(-.38,.92,.12),new THREE.Vector3(.38,.92,-.1),new THREE.Vector3(.06,1,.16)];
- tipDirections.forEach((direction,index)=>addLeaf(group,geometry,leafMaterials[(index+1)%leafMaterials.length],veinMaterial,tip,direction,.072,.23,(index-1)*.34));
+ tipDirections.forEach((direction,index)=>addLeaf(group,geometry,leafMaterials[(index+1)%leafMaterials.length],veinMaterial,tip,direction,.05,.23,(index-1)*.34));
  group.userData.vaseLeafSprig=true;group.userData.leafCount=count+tipDirections.length;
  return group;
 }

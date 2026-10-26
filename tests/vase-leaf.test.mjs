@@ -27,3 +27,16 @@ test('vase foliage follows the chosen endpoint with deterministic geometry',()=>
  const position=stems[0].geometry.attributes.position;
  assert.ok(position.count>100);
 });
+
+test('vase leaves use a slender lanceolate silhouette',()=>{
+ const sprig=createVaseLeafSprig(new THREE.Vector3(.75,1.25,.1),2);
+ const leaves=[];
+ sprig.traverse(object=>{
+  if(!object.isMesh||object.geometry.type!=='BufferGeometry')return;
+  object.geometry.computeBoundingBox();
+  const size=new THREE.Vector3();object.geometry.boundingBox.getSize(size);
+  if(size.x>1.5&&size.y>.8)leaves.push({width:size.x*object.scale.x,length:size.y*object.scale.y});
+ });
+ assert.equal(leaves.length,11);
+ assert.ok(leaves.every(leaf=>leaf.width/leaf.length<.48),'each leaf should remain visibly narrow and elongated');
+});
