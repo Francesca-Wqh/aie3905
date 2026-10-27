@@ -4,6 +4,11 @@ import * as THREE from 'three';
 function seededRandom(seed) { let a = seed; return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 export function createQingmingMaterials() {
     const cache = new Map();
+    const accentRoles = new Map([
+        ['775951', 'accent'],
+        ['526d6a', 'blue'],
+        ['a58b59', 'ochre'],
+    ]);
     return (color, kind = 'plaster') => {
         let maps = cache.get(kind);
         if (!maps) {
@@ -64,7 +69,9 @@ export function createQingmingMaterials() {
             bumpScale: kind === 'wood' ? 0.025 : kind === 'stone' ? 0.045 : 0.018,
             roughness: 1,
         });
-        m.userData = { surfaceColor: color, surfaceKind: kind };
+        const colorKey = new THREE.Color(color).getHexString();
+        const buildingRole = kind === 'plaster' ? (accentRoles.get(colorKey) || kind) : kind;
+        m.userData = { surfaceColor: color, surfaceKind: kind, buildingRole };
         return m;
     };
 }

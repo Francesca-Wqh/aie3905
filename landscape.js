@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import {placementHeight} from './ground.js?v=mist06';
 import { OrbitControls } from './vendor/OrbitControls.js';
+import {applyBuildingTheme,getModelTheme,setModelTheme} from './model-theme.js?v=modeltheme1';
 
 /* ============================ 一、可调参数 ============================ */
 const SMALL = Math.min(innerWidth, innerHeight) < 820;
@@ -518,6 +519,12 @@ function recolorTrees() {
   if (canopyMesh.instanceColor) canopyMesh.instanceColor.needsUpdate = true;
 }
 
+function recolorLandscapeModels() {
+  const modelTheme = getModelTheme(themeId);
+  trunkMat.color.set(modelTheme.tree.trunk);
+  pavilions.forEach(item => applyBuildingTheme(item.group, themeId));
+}
+
 /* ============================ 七、树木 ============================ */
 const trunkGeo = new THREE.CylinderGeometry(0.06, 0.105, 1.15, 5);
 trunkGeo.translate(0, 0.58, 0);
@@ -561,6 +568,9 @@ function makePavilion(scale) {
   const wood  = new THREE.MeshStandardMaterial({ color: 0x8d6a4f, roughness: 0.88, flatShading: true });
   const roof  = new THREE.MeshStandardMaterial({ color: 0x8c4b3b, roughness: 0.72, flatShading: true });
   const stone = new THREE.MeshStandardMaterial({ color: 0xc3c6bb, roughness: 0.95, flatShading: true });
+  wood.userData.modelThemeRole = 'wood';
+  roof.userData.modelThemeRole = 'tile';
+  stone.userData.modelThemeRole = 'stone';
 
   const base = new THREE.Mesh(new THREE.CylinderGeometry(2.05, 2.3, 0.34, 8), stone);
   base.position.y = 0.17; g.add(base);
@@ -581,6 +591,7 @@ function makePavilion(scale) {
 
   g.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   g.scale.setScalar(scale);
+  applyBuildingTheme(g, themeId);
   return g;
 }
 
@@ -1148,6 +1159,7 @@ function refreshWaterColors() {
 function applyTheme(id) {
   const T = THEMES[id];
   themeId = id;
+  setModelTheme(id);
 
   for (let i = 0; i < RAMP.length; i++) RAMP[i][1].set(T.ramp[i]);   // 地形色阶
 
@@ -1160,11 +1172,13 @@ function applyTheme(id) {
 
   leafRange = T.leaf;
   recolorTrees();
+  recolorLandscapeModels();
 
   applyBackground(BG_PRESETS.find(b => b.id === T.bg));   // 内含 refreshWaterColors
 
   refreshTerrain();      // 重算地形顶点色
   syncPanelState();
+  window.dispatchEvent(new CustomEvent('model-theme-change', {detail: {themeId: id}}));
 }
 
 function syncPanelState() {

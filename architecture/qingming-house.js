@@ -1,7 +1,7 @@
 // Adapted from WITHIN, copyright (c) 2026 WITHIN contributors, MIT.
 // Original sources and adaptation notes: architecture/UPSTREAM.md.
 import * as THREE from 'three';
-import { createQingmingMaterials } from './qingming-materials.js?v=courtyard03';
+import { createQingmingMaterials } from './qingming-materials.js?v=courtyard04';
 import { buildQingmingShopFront } from './qingming-commerce.js?v=courtyard03';
 import { clothCanopy, potteryJar, wovenBasket } from './qingming-details.js?v=courtyard03';
 import { roofGeometry, roofTilesGeometry, roofGableGeometry, roofSurfaceY } from './roof.js?v=courtyard03';
@@ -39,7 +39,7 @@ function sign(g, x, y, z, index) { box(g, [2, .68, .13], [x, y, z], dark); const
     signMaterials.set(index, m);
     shared.add(m);
 } const face = new THREE.Mesh(new THREE.PlaneGeometry(1.86, .54), m); face.position.set(x, y, z + .073); face.name = 'qingming-shop-sign'; g.add(face); }
-function hangingLantern(x,y,z){const g=new THREE.Group();g.name='qingming-hanging-lantern';g.position.set(x,y,z);const paper=new THREE.MeshStandardMaterial({color:'#aa6247',emissive:'#d98a45',emissiveIntensity:.17,roughness:.95});const body=new THREE.Mesh(new THREE.SphereGeometry(.21,12,8),paper);body.scale.set(1,1.25,1);g.add(body);beam(g,[0,.24,0],[0,.52,0],.018,dark);for(const side of [-1,1]){const cap=new THREE.Mesh(new THREE.CylinderGeometry(.105,.105,.045,10),dark);cap.position.y=side*.245;g.add(cap);}for(let i=0;i<8;i++){const a=i*Math.PI/4,pts=Array.from({length:9},(_,j)=>{const b=j/8*Math.PI,r=Math.sin(b)*.214;return new THREE.Vector3(Math.cos(a)*r,Math.cos(b)*.264,Math.sin(a)*r)});g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),8,.007,3,false),linen));}beam(g,[0,-.28,0],[0,-.47,0],.022,paper);return g;}
+function hangingLantern(x,y,z){const g=new THREE.Group();g.name='qingming-hanging-lantern';g.position.set(x,y,z);const paper=new THREE.MeshStandardMaterial({color:'#aa6247',emissive:'#d98a45',emissiveIntensity:.17,roughness:.95});paper.userData.buildingRole='lantern';const body=new THREE.Mesh(new THREE.SphereGeometry(.21,12,8),paper);body.scale.set(1,1.25,1);g.add(body);beam(g,[0,.24,0],[0,.52,0],.018,dark);for(const side of [-1,1]){const cap=new THREE.Mesh(new THREE.CylinderGeometry(.105,.105,.045,10),dark);cap.position.y=side*.245;g.add(cap);}for(let i=0;i<8;i++){const a=i*Math.PI/4,pts=Array.from({length:9},(_,j)=>{const b=j/8*Math.PI,r=Math.sin(b)*.214;return new THREE.Vector3(Math.cos(a)*r,Math.cos(b)*.264,Math.sin(a)*r)});g.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts),8,.007,3,false),linen));}beam(g,[0,-.28,0],[0,-.47,0],.022,paper);return g;}
 export function buildQingmingHouse(w, d, tall = false, index = 1) {
     const x = -20, z = 10, facing = 0;
     const g = new THREE.Group();

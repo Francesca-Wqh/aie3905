@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {applyFlowerTheme as applyModelFlowerTheme} from './model-theme.js?v=modeltheme1';
 
 const sharedGeometries = new Set();
 const shared = geometry => {
@@ -46,6 +47,11 @@ const materials = {
   vasePetalViolet: new THREE.MeshStandardMaterial({color: '#b79acb', emissive: '#a582be', emissiveIntensity: 0.2, roughness: 0.8, side: THREE.DoubleSide}),
   vaseBud: new THREE.MeshStandardMaterial({color: '#bbc193', roughness: 0.85})
 };
+
+const materialRoles = new Map(Object.entries(materials).map(([name, material]) => {
+  const role = /leaf/i.test(name) ? 'leaf' : /bark|stem/i.test(name) ? 'stem' : /bulb/i.test(name) ? 'bulb' : /trumpet|center|stamen/i.test(name) ? 'center' : /petal|bud/i.test(name) ? 'petal' : null;
+  return [material, role];
+}));
 
 export const flowerSpecies = {
   magnolia: {label: '玉兰', sceneLabel: '玉兰树', sceneScale: 1.3, habitats: ['ground', 'mountain']},
@@ -654,10 +660,12 @@ const scenePalettes = {
   ]
 };
 
-function setMaterialColor(object, color) {
+function setMaterialColor(object, color, role) {
   if (!color || !object.isMesh) return;
   object.material = object.material.clone();
   object.material.userData.flowerPaletteMaterial = true;
+  object.material.userData.flowerColorRole = role;
+  object.material.userData.flowerBaseColor = new THREE.Color(color).getHexString();
   object.material.color.set(color);
 }
 
@@ -669,18 +677,28 @@ function applyScenePalette(group, species, seed) {
     const parentName = object.parent?.name || '';
     if (parentName === `${species}-bloom`) {
       if (object.geometry === petalGeometry) {
-        setMaterialColor(object, object.parent.children.indexOf(object) % 2 ? palette.light || palette.petal : palette.petal);
+        setMaterialColor(object, object.parent.children.indexOf(object) % 2 ? palette.light || palette.petal : palette.petal, 'petal');
         if (species === 'magnolia') object.material.emissive.set('#eeeae3');
       }
-      else if (object.geometry === trumpetGeometry) setMaterialColor(object, palette.trumpet);
-      else if (object.geometry === centerGeometry) setMaterialColor(object, palette.center || palette.trumpet);
+      else if (object.geometry === trumpetGeometry) setMaterialColor(object, palette.trumpet, 'center');
+      else if (object.geometry === centerGeometry) setMaterialColor(object, palette.center || palette.trumpet, 'center');
     } else if (object.name.endsWith('-leaf') || object.name.endsWith('-sepal')) {
-      setMaterialColor(object, palette.leaf);
+      setMaterialColor(object, palette.leaf, 'leaf');
     } else if (object.geometry === bulbGeometry) {
-      setMaterialColor(object, palette.bulb);
+      setMaterialColor(object, palette.bulb, 'bulb');
     } else if (object.geometry === petalGeometry && palette.petal) {
-      setMaterialColor(object, palette.petal);
+      setMaterialColor(object, palette.petal, 'petal');
     }
+  });
+}
+
+function tagVaseFlowerMaterials(group) {
+  group.traverse(object => {
+    if (!object.isMesh) return;
+    const role = materialRoles.get(object.material);
+    if (!role) return;
+    object.material.userData.flowerColorRole = role;
+    object.material.userData.flowerBaseColor = object.material.color.getHexString();
   });
 }
 
@@ -717,6 +735,8 @@ export function createVaseFlower(species, endpoint, variation = 0, flowerCount =
   group.userData.vaseVariation = variationIndex % vaseVariations.length;
   group.userData.vaseEndpoint = endpoint.clone();
   group.userData.vaseFlowerCount = Math.max(1, Math.floor(flowerCount));
+  tagVaseFlowerMaterials(group);
+  applyModelFlowerTheme(group);
   return group;
 }
 
@@ -742,9 +762,12 @@ export function createSceneFlower(species, seed = 1, habitat = 'ground') {
   group.userData.habitatLabel = habitatKey === 'mountain' ? '山地型' : '平地型';
   group.userData.recommendedScale = flowerSpecies[key].sceneScale * (habitatKey === 'mountain' ? 0.92 : 1);
   group.rotation.y = random(seed + 91) * Math.PI * 2;
+  applyModelFlowerTheme(group);
   return group;
 }
 
 export function isSharedFlowerGeometry(geometry) {
   return sharedGeometries.has(geometry) || Boolean(geometry?.userData?.sharedFlowerGeometry);
 }
+
+export {applyModelFlowerTheme as applyFlowerTheme};

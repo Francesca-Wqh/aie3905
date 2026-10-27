@@ -3,6 +3,7 @@ import {worldOffset,footprintSamples,footprintsOverlap,orientationCandidates,sce
 import {placementHeight} from '../ground.js?v=mist06';
 import {buildDetailedPavilion} from './pavilions.js?v=pavilion04';
 import {buildQingmingHouse,buildQingmingResidence} from './qingming-house.js?v=eaves05';
+import {applyBuildingTheme} from '../model-theme.js?v=modeltheme1';
 
 const mats={stone:new THREE.MeshStandardMaterial({color:'#a7a48e',roughness:1})};
 export const styles={house:['台十茶肆','汴京酒铺','逐亚客舍','小民居','围合小院'],pavilion:['四角亭','六角亭']};
@@ -51,7 +52,7 @@ export function createBuilding(plan,style=plan.defaultStyle){
   content.scale.setScalar(scale);content.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
   g.userData.source='WITHIN/qingming.ts house';
  }
- g.rotation.y=plan.yaw||0;g.add(content);g.name=styles[plan.type][style];g.userData.plan=plan;g.userData.style=style;return g;
+ g.rotation.y=plan.yaw||0;g.add(content);g.name=styles[plan.type][style];g.userData.plan=plan;g.userData.style=style;applyBuildingTheme(g);return g;
 }
 export function disposeBuildingMaterials(group){const materials=new Set();group.traverse(o=>{if(o.material){for(const m of Array.isArray(o.material)?o.material:[o.material])if(m.userData.buildingOwned)materials.add(m);}});materials.forEach(m=>m.dispose());}
 // A continuous stone skirt follows the sampled ground instead of leaving floating corners.
